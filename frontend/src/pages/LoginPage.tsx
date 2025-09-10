@@ -4,6 +4,8 @@ import { useAuth } from "../auth/useAuth";
 import axios from "axios";
 import { setAccessToken } from "../lib/token";
 
+const API = import.meta.env.DEV ? "http://localhost:8080" : ""; // ← 상단에 선언
+
 export default function LoginPage({ success }: { success?: boolean }) {
   const { search } = useLocation();
   const params = new URLSearchParams(search);
@@ -16,13 +18,12 @@ export default function LoginPage({ success }: { success?: boolean }) {
     if (!success) return;
     (async () => {
       try {
-        const { data } = await axios.post("/api/token", {}, { withCredentials: true });
+        const { data } = await axios.post(`${API}/api/token`, {}, { withCredentials: true }); // ← 전체 주소 사용
         setAccessToken(data.accessToken);
         await refresh();
       } catch (e) {
         console.error(e);
       }
-      // navigate는 user가 갱신된 후에 실행
     })();
   }, [success, refresh]);
 
@@ -33,8 +34,6 @@ export default function LoginPage({ success }: { success?: boolean }) {
       navigate(redirect, { replace: true });
     }
   }, [user, loading, success, navigate, redirect]);
-
-  const API = import.meta.env.DEV ? "http://localhost:8080" : "";
 
   return (
     <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-16">

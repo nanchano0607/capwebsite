@@ -76,9 +76,8 @@ public class CartItemService {
             cartItemRepository.save(item);
             return item.getQuantity();
         } else {
-            // current == 1 → 라인 아이템 제거
-            cartItemRepository.delete(item);
-            return 0; // 프런트에서 0이면 라인 제거
+            // current == 1 → 더 이상 감소하지 않음
+            return 1;
         }
     }
 
