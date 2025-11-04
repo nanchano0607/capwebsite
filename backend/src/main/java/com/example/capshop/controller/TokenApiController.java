@@ -1,6 +1,7 @@
 package com.example.capshop.controller;
 
 import com.example.capshop.config.OAuth2SuccessHandler;
+import com.example.capshop.domain.User;
 import com.example.capshop.dto.CreateAccessTokenResponse;
 import com.example.capshop.dto.UserProfile;
 import com.example.capshop.service.TokenService;
@@ -35,48 +36,42 @@ public class TokenApiController {
     private final TokenService tokenService;
     private static final String RT_COOKIE = OAuth2SuccessHandler.REFRESH_TOKEN_COOKIE_NAME;
 
-    @GetMapping("/ping")
-    public Map<String,String> ping() {
-        log.debug("[/api/ping] called");
-        return Map.of("ok","true");
-    }
 
     @PostMapping("/token")
     public ResponseEntity<CreateAccessTokenResponse> createAccessToken(HttpServletRequest request) {
         // 1) 쿠키에서 리프레시 토큰 읽기 (없으면 401)
         String refreshToken = CookieUtil.getCookieValue(request, RT_COOKIE)
                 .orElseThrow(() -> {
-                    log.warn("[/api/token] No refresh token cookie ({}) found → 401", RT_COOKIE);
+                    //log.warn("[/api/token] No refresh token cookie ({}) found → 401", RT_COOKIE);
                     return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No refresh token");
                 });
 
-        log.info("[/api/token] refreshToken(cookie={}): {}", RT_COOKIE, mask(refreshToken));
+//        log.info("[/api/token] refreshToken(cookie={}): {}", RT_COOKIE, mask(refreshToken));
 
         // 2) JWT 유효성만 확인해서 새 Access Token 발급
         String newAccessToken = tokenService.createdNewAccessToken(refreshToken);
 
         // 3) OK
         CreateAccessTokenResponse body = new CreateAccessTokenResponse(newAccessToken);
-        log.info("[/api/token] issuing new access token: {}", mask(newAccessToken));
+       // log.info("[/api/token] issuing new access token: {}", mask(newAccessToken));
         return ResponseEntity.ok(body);
     }
 
- // ...existing code...
     @GetMapping("/me")
     public ResponseEntity<?> me(Authentication authentication) {
-        log.debug("[/api/me] authentication = {}", (authentication == null ? "null" : authSummary(authentication)));
+      //  log.debug("[/api/me] authentication = {}", (authentication == null ? "null" : authSummary(authentication)));
 
         // 비로그인 → 401
         if (authentication == null ||
             !authentication.isAuthenticated() ||
             authentication instanceof AnonymousAuthenticationToken) {
             Map<String, String> unauth = Map.of("message", "unauthenticated");
-            log.info("[/api/me] unauthenticated → 401, body={}", unauth);
+          //  log.info("[/api/me] unauthenticated → 401, body={}", unauth);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(unauth);
         }
 
         Object principal = authentication.getPrincipal();
-        log.debug("[/api/me] principal class = {}", principal.getClass().getName());
+     //   log.debug("[/api/me] principal class = {}", principal.getClass().getName());
 
         // 1) OAuth2 로그인 (Google/Kakao/Naver)
         if (principal instanceof OAuth2User ou) {
@@ -88,21 +83,22 @@ public class TokenApiController {
             attrs.put("name", name);
 
             UserProfile profile = new UserProfile(attrs);
-            log.info("[/api/me] OAuth2User resolved → email={}, name={}", email, name);
-            log.debug("[/api/me] response body={}", profile);
+         //   log.info("[/api/me] OAuth2User resolved → email={}, name={}", email, name);
+          //  log.debug("[/api/me] response body={}", profile);
             return ResponseEntity.ok(profile);
         }
 
         // 2) 폼 로그인/기본 UserDetails
-        if (principal instanceof com.example.capshop.domain.User user) {
+        if (principal instanceof User user) {
             Map<String, Object> attrs = new HashMap<>();
             attrs.put("id", user.getId());
             attrs.put("email", user.getEmail());
             attrs.put("name", user.getName());
+            attrs.put("isAdmin", user.isAdmin()); // ← 추가
 
             UserProfile profile = new UserProfile(attrs);
-            log.info("[/api/me] User resolved → id={}, email={}, name={}", user.getId(), user.getEmail(), user.getName());
-            log.debug("[/api/me] response body={}", profile);
+       //     log.info("[/api/me] User resolved → id={}, email={}, name={}", user.getId(), user.getEmail(), user.getName());
+        //    log.debug("[/api/me] response body={}", profile);
             return ResponseEntity.ok(profile);
         } else if (principal instanceof UserDetails ud) {
             Map<String, Object> attrs = new HashMap<>();
@@ -111,8 +107,8 @@ public class TokenApiController {
             attrs.put("name", ud.getUsername());
 
             UserProfile profile = new UserProfile(attrs);
-            log.info("[/api/me] UserDetails resolved → username={}", ud.getUsername());
-            log.debug("[/api/me] response body={}", profile);
+      //      log.info("[/api/me] UserDetails resolved → username={}", ud.getUsername());
+        //    log.debug("[/api/me] response body={}", profile);
             return ResponseEntity.ok(profile);
         }
 
@@ -123,11 +119,10 @@ public class TokenApiController {
         attrs.put("name", authentication.getName());
 
         UserProfile profile = new UserProfile(attrs);
-        log.info("[/api/me] Other principal → name={}", authentication.getName());
-        log.debug("[/api/me] response body={}", profile);
+    //    log.info("[/api/me] Other principal → name={}", authentication.getName());
+     //   log.debug("[/api/me] response body={}", profile);
         return ResponseEntity.ok(profile);
     }
-// ...existing code...
 
     @SuppressWarnings("unchecked")
     private String resolveEmail(OAuth2User u) {

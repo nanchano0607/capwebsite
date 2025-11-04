@@ -29,13 +29,14 @@ function broadcast(token: string | null) {
 }
 
 /** /api/token 호출용 "깨끗한" axios (인터셉터 미적용) */
+const API_BASE = import.meta.env.DEV ? "http://localhost:8080" : "";
 const plain = axios.create({ withCredentials: true });
 
 /** 액세스 토큰 재발급 */
 async function refreshAccessToken(): Promise<string | null> {
   try {
     const res = await plain.post(
-      "/api/token",
+      `${API_BASE}/api/token`,
       {},
       { validateStatus: (s) => s >= 200 && s < 300 }
     );

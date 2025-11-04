@@ -1,28 +1,32 @@
 package com.example.capshop.config;
+
 import com.example.capshop.domain.RefreshToken;
 import com.example.capshop.domain.User;
-import com.example.capshop.dto.UserProfile;
 import com.example.capshop.repository.OAuth2AuthorizationRequestBasedOnCookieRepository;
 import com.example.capshop.repository.RefreshTokenRepository;
 import com.example.capshop.service.UserService;
 import com.example.capshop.util.CookieUtil;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
+
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
+import java.util.Optional;
 
-
+@Slf4j
 @RequiredArgsConstructor
-//@Component
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
     public static final String REFRESH_TOKEN_COOKIE_NAME = "refresh_token";
     public static final Duration REFRESH_TOKEN_DURATION = Duration.ofDays(14);
-    // 깨끗한 성공 페이지(토큰 없이)
     public static final String REDIRECT_PATH = "http://localhost:5173/login/success";
 
     // 로컬 개발용
@@ -35,24 +39,53 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final UserService userService;
 
     @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException {
-        OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
-        UserProfile profile = new UserProfile(oAuth2User.getAttributes());
-        User user = userService.findOrCreateUser(profile.getEmail(), profile.getName());
+    public void onAuthenticationSuccess(HttpServletRequest request,
+                                        HttpServletResponse response,
+                                        Authentication authentication) throws IOException {
 
-        // 1) RT 발급 + DB 저장
+        // 1) 공급자 구분: google / kakao / naver (절대 null 아님)
+        String provider = null;
+        if (authentication instanceof OAuth2AuthenticationToken oauth2Token) {
+            provider = oauth2Token.getAuthorizedClientRegistrationId();
+        }
+        log.info("provider={}", provider);
+
+        // 2) 소셜 프로필 속성 꺼내기 (구글은 OIDC, 그 외 OAuth2)
+        OAuth2User principal = (OAuth2User) authentication.getPrincipal();
+        Map<String, Object> attrs = principal.getAttributes();
+
+        // 구글 OIDC면 email/name 보장이 좋은 편
+        if (principal instanceof OidcUser oidc) {
+            attrs = oidc.getAttributes();
+        }
+
+        // 3) email / name / providerUserId 정규화 (카카오/네이버 대비)
+        String email = extractEmail(provider, attrs);
+        String name  = extractName(provider, attrs);
+        String providerUserId = extractProviderId(provider, attrs);
+
+        // 이메일이 아예 없을 수 있음(카카오 미동의 등) → 임시 이메일 생성
+        if (email == null || email.isBlank()) {
+            //email = provider + "_" + providerUserId + "@placeholder.local";
+            throw new IllegalArgumentException("이메일 제공에 동의하지 않은 소셜 계정은 가입할 수 없습니다.");
+        }
+
+        // 4) 유저 찾거나 생성 (여기서 oauthProvider까지 저장하도록 메서드 시그니처 확장 권장)
+        User user = userService.findOrCreateUser(email, name, provider, providerUserId);
+
+        // 5) RT 발급 + 저장
         String refreshToken = tokenProvider.generateToken(user, REFRESH_TOKEN_DURATION);
         saveRefreshToken(user.getId(), refreshToken);
 
-        // 2) RT를 HttpOnly 쿠키로 심기
+        // 6) RT 쿠키 심기 (HttpOnly)
         int maxAge = (int) REFRESH_TOKEN_DURATION.toSeconds();
         CookieUtil.deleteCookie(response, REFRESH_TOKEN_COOKIE_NAME, SECURE, SAME_SITE);
         CookieUtil.addCookie(response, REFRESH_TOKEN_COOKIE_NAME, refreshToken, maxAge, SECURE, SAME_SITE);
 
-        // 3) OAuth2 임시 쿠키 정리
+        // 7) OAuth2 임시 쿠키 정리
         clearAuthenticationAttributes(request, response);
 
-        // 4) 토큰을 URL에 싣지 않고, 깨끗한 성공 페이지로 리다이렉트
+        // 8) 토큰을 URL에 싣지 않고, 깨끗한 성공 페이지로 리다이렉트
         getRedirectStrategy().sendRedirect(request, response, REDIRECT_PATH);
     }
 
@@ -66,5 +99,64 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private void clearAuthenticationAttributes(HttpServletRequest request, HttpServletResponse response) {
         super.clearAuthenticationAttributes(request);
         authorizationRequestRepository.removeAuthorizationRequestCookies(request, response);
+    }
+
+    /* ========= 공급자별 attribute 정규화 유틸 ========= */
+
+    private String extractEmail(String provider, Map<String, Object> attrs) {
+        if ("google".equals(provider)) {
+            return (String) attrs.get("email");
+        } else if ("kakao".equals(provider)) {
+            Map<String, Object> account = getMap(attrs, "kakao_account");
+            return account != null ? (String) account.get("email") : null;
+        } else if ("naver".equals(provider)) {
+            // 네이버는 보통 {response:{email, name, ...}} 형태인데
+            // 너의 OAuth2UserCustomService에서 평탄화해서 넘어왔다면 그냥 email 키에 있을 수도 있음.
+            Object email = attrs.get("email");
+            if (email instanceof String s) return s;
+            Map<String, Object> resp = getMap(attrs, "response");
+            return resp != null ? (String) resp.get("email") : null;
+        }
+        return null;
+    }
+
+    private String extractName(String provider, Map<String, Object> attrs) {
+        if ("google".equals(provider)) {
+            return (String) attrs.getOrDefault("name", (String) attrs.get("given_name"));
+        } else if ("kakao".equals(provider)) {
+            Map<String, Object> account = getMap(attrs, "kakao_account");
+            Map<String, Object> profile = account != null ? getMap(account, "profile") : null;
+            return profile != null ? (String) profile.get("nickname") : null;
+        } else if ("naver".equals(provider)) {
+            Object name = attrs.get("name");
+            if (name instanceof String s) return s;
+            Map<String, Object> resp = getMap(attrs, "response");
+            return resp != null ? (String) resp.get("name") : null;
+        }
+        return null;
+    }
+
+    private String extractProviderId(String provider, Map<String, Object> attrs) {
+        if ("google".equals(provider)) {
+            return Optional.ofNullable((String) attrs.get("sub")).orElse((String) attrs.get("id"));
+        } else if ("kakao".equals(provider)) {
+            // kakao id는 Long이어서 String 변환 필요
+            Object id = attrs.get("id");
+            return id != null ? String.valueOf(id) : null;
+        } else if ("naver".equals(provider)) {
+            Object id = attrs.get("id");
+            if (id instanceof String s) return s;
+            Map<String, Object> resp = getMap(attrs, "response");
+            Object rid = resp != null ? resp.get("id") : null;
+            return rid != null ? rid.toString() : null;
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getMap(Map<String, Object> parent, String key) {
+        Object v = parent.get(key);
+        if (v instanceof Map<?, ?> m) return (Map<String, Object>) m;
+        return null;
     }
 }

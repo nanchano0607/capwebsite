@@ -26,13 +26,21 @@ public class CartItem {
     private Cap cap;    // Cap 엔티티 참조
 
     private int quantity;
+    
+    private String size;  // 선택된 사이즈 (S, M, L, XL 등)
 
     public CartItem() {
     }
 
-    public CartItem(User user, Cap cap, int quantity) {
+    public CartItem(User user, Cap cap, int quantity, String size) {
         this.user = user;
         this.cap = cap;
         this.quantity = quantity;
+        this.size = size;
+    }
+    
+    // 기존 생성자 유지 (하위 호환성)
+    public CartItem(User user, Cap cap, int quantity) {
+        this(user, cap, quantity, null);
     }
 }

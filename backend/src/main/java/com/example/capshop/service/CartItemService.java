@@ -2,12 +2,15 @@ package com.example.capshop.service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
 import com.example.capshop.domain.Cap;
 import com.example.capshop.domain.CartItem;
+
 import com.example.capshop.domain.User;
+import com.example.capshop.dto.CartItemResponse;
 import com.example.capshop.repository.CartItemRepository;
 
 import jakarta.transaction.Transactional;
@@ -18,40 +21,130 @@ import lombok.RequiredArgsConstructor;
 public class CartItemService {
     private final CartItemRepository cartItemRepository;
 
-    public CartItem addToCart(User user, Cap cap, int quantity) {
-        Optional<CartItem> existingItem = cartItemRepository.findByUserAndCap(user, cap);
+    public CartItem addToCart(User user, Cap cap, int quantity, String size) {
+        // 같은 사용자, 같은 상품, 같은 사이즈인 아이템이 있는지 확인
+        Optional<CartItem> existingItem = cartItemRepository.findByUserAndCapAndSize(user, cap, size);
 
         if (existingItem.isPresent()) {
             CartItem item = existingItem.get();
             item.setQuantity(item.getQuantity() + quantity);
             return cartItemRepository.save(item);
         } else {
-            CartItem newItem = new CartItem(user, cap, quantity);
+            CartItem newItem = new CartItem(user, cap, quantity, size);
             return cartItemRepository.save(newItem);
         }
     }
+    
+    // 기존 메서드 유지 (하위 호환성)
+    public CartItem addToCart(User user, Cap cap, int quantity) {
+        return addToCart(user, cap, quantity, null);
+    }
 
-    public void deleteCartItem(User user, Cap cap) {
-        Optional<CartItem> existingItem = cartItemRepository.findByUserAndCap(user, cap);
+    public void deleteCartItem(User user, Cap cap, String size) {
+        System.out.println("deleteCartItem 호출 - userId: " + user.getId() + ", capId: " + cap.getId() + ", size: '" + size + "'");
+        
+        // 먼저 정확한 사이즈로 찾기
+        Optional<CartItem> existingItem = cartItemRepository.findByUserAndCapAndSize(user, cap, size);
+        
+        // 찾지 못했고 size가 null이 아닌 경우, null 사이즈로 저장된 아이템 찾기
+        if (existingItem.isEmpty() && size != null) {
+            System.out.println("정확한 사이즈로 찾지 못함. null 사이즈로 다시 시도...");
+            existingItem = cartItemRepository.findByUserAndCapAndSize(user, cap, null);
+        }
         
         if (existingItem.isPresent()) {
             cartItemRepository.delete(existingItem.get());
+            System.out.println("장바구니에서 삭제 완료: " + cap.getName() + " (사이즈: " + size + ")");
+        } else {
+            System.out.println("삭제할 아이템을 찾을 수 없습니다 - 사이즈: '" + size + "'");
+            // 해당 사용자의 모든 CartItem을 조회해서 디버깅
+            List<CartItem> allItems = cartItemRepository.findByUser(user);
+            System.out.println("사용자의 모든 장바구니 아이템:");
+            for (CartItem item : allItems) {
+                System.out.println("- 아이템 ID: " + item.getId() + ", Cap ID: " + item.getCap().getId() + 
+                                 ", Size: '" + item.getSize() + "', Quantity: " + item.getQuantity());
+            }
+            throw new IllegalArgumentException("장바구니에 해당 상품이 없습니다. (사이즈: '" + size + "')");
+        }
+    }
+    
+    // 기존 메서드 유지 (하위 호환성) - 사이즈 없이 삭제하는 경우 첫 번째 발견된 아이템 삭제
+    public void deleteCartItem(User user, Cap cap) {
+        List<CartItem> items = cartItemRepository.findAllByUserAndCap(user, cap);
+        if (!items.isEmpty()) {
+            cartItemRepository.delete(items.get(0));
             System.out.println("장바구니에서 삭제 완료: " + cap.getName());
         } else {
             throw new IllegalArgumentException("장바구니에 해당 상품이 없습니다.");
         }
     }
     @Transactional
+    public int increaseQuantity(User user, Cap cap, String size) {
+        System.out.println("increaseQuantity 호출 - userId: " + user.getId() + ", capId: " + cap.getId() + ", size: '" + size + "'");
+        
+        // 먼저 정확한 사이즈로 찾기
+        Optional<CartItem> itemOpt = cartItemRepository.findByUserAndCapAndSize(user, cap, size);
+        
+        // 찾지 못했고 size가 null이 아닌 경우, null 사이즈로 저장된 아이템 찾기
+        if (itemOpt.isEmpty() && size != null) {
+            System.out.println("정확한 사이즈로 찾지 못함. null 사이즈로 다시 시도...");
+            itemOpt = cartItemRepository.findByUserAndCapAndSize(user, cap, null);
+            
+            // null 사이즈 아이템을 찾았다면 사이즈를 업데이트
+            if (itemOpt.isPresent()) {
+                CartItem existingItem = itemOpt.get();
+                existingItem.setSize(size);
+                cartItemRepository.save(existingItem);
+                System.out.println("기존 null 사이즈 아이템의 사이즈를 업데이트했습니다.");
+            }
+        }
+        
+        // 장바구니에서 해당 유저 + 모자 + 사이즈 찾기
+        CartItem item = itemOpt.orElseGet(() -> {
+            System.out.println("기존 아이템을 찾을 수 없어서 새로 생성합니다.");
+            CartItem ci = new CartItem();
+            ci.setUser(user);
+            ci.setCap(cap);
+            ci.setSize(size);
+            ci.setQuantity(0);
+            return ci;
+        });
+
+        int next = item.getQuantity() + 1;
+
+        // 사이즈별 재고 체크
+        Long stockBySize = cap.getStockBySize(size);
+        if (stockBySize != null && next > stockBySize) {
+            throw new IllegalStateException("재고를 초과했습니다. (사이즈 " + size + " 재고: " + stockBySize + "개)");
+        }
+        
+        // 전체 재고 체크 (하위 호환성)
+        if (cap.getStock() != null && next > cap.getStock()) {
+            throw new IllegalStateException("재고를 초과했습니다.");
+        }
+
+        item.setQuantity(next);
+        cartItemRepository.save(item);
+        System.out.println("아이템 수량 증가 완료 - 새 수량: " + next);
+        return next;
+    }
+    
+    // 기존 메서드 유지 (하위 호환성)
+    @Transactional
     public int increaseQuantity(User user, Cap cap) {
-        // 장바구니에서 해당 유저 + 모자 찾기
-        CartItem item = cartItemRepository.findByUserAndCap(user, cap)
-                .orElseGet(() -> {
-                    CartItem ci = new CartItem();
-                    ci.setUser(user);
-                    ci.setCap(cap);
-                    ci.setQuantity(0);
-                    return ci;
-                });
+        // 사이즈 없이 호출된 경우 첫 번째 발견된 아이템의 수량 증가
+        List<CartItem> items = cartItemRepository.findAllByUserAndCap(user, cap);
+        CartItem item;
+        
+        if (items.isEmpty()) {
+            // 아이템이 없으면 새로 생성 (사이즈 null)
+            item = new CartItem();
+            item.setUser(user);
+            item.setCap(cap);
+            item.setQuantity(0);
+        } else {
+            item = items.get(0);
+        }
 
         int next = item.getQuantity() + 1;
 
@@ -66,9 +159,28 @@ public class CartItemService {
     }
 
     @Transactional
-    public int decreaseQuantity(User user, Cap cap) {
-        CartItem item = cartItemRepository.findByUserAndCap(user, cap)
-                .orElseThrow(() -> new IllegalArgumentException("장바구니에 해당 상품이 없습니다."));
+    public int decreaseQuantity(User user, Cap cap, String size) {
+        System.out.println("decreaseQuantity 호출 - userId: " + user.getId() + ", capId: " + cap.getId() + ", size: '" + size + "'");
+        
+        // 해당 사용자의 모든 CartItem을 조회해서 디버깅
+        List<CartItem> allItems = cartItemRepository.findByUser(user);
+        System.out.println("사용자의 모든 장바구니 아이템 수: " + allItems.size());
+        for (CartItem item : allItems) {
+            System.out.println("- 아이템 ID: " + item.getId() + ", Cap ID: " + item.getCap().getId() + 
+                             ", Size: '" + item.getSize() + "', Quantity: " + item.getQuantity());
+        }
+        
+        // 먼저 정확한 사이즈로 찾기
+        Optional<CartItem> itemOpt = cartItemRepository.findByUserAndCapAndSize(user, cap, size);
+        
+        // 찾지 못했고 size가 null이 아닌 경우, null 사이즈로 저장된 아이템 찾기
+        if (itemOpt.isEmpty() && size != null) {
+            System.out.println("정확한 사이즈로 찾지 못함. null 사이즈로 다시 시도...");
+            itemOpt = cartItemRepository.findByUserAndCapAndSize(user, cap, null);
+        }
+        
+        CartItem item = itemOpt.orElseThrow(() -> 
+            new IllegalArgumentException("장바구니에 해당 상품이 없습니다. (사이즈: '" + size + "')"));
 
         int current = item.getQuantity();
         if (current > 1) {
@@ -81,10 +193,57 @@ public class CartItemService {
         }
     }
 
+    // 기존 메서드 유지 (하위 호환성)
+    @Transactional
+    public int decreaseQuantity(User user, Cap cap) {
+        List<CartItem> items = cartItemRepository.findAllByUserAndCap(user, cap);
+        if (items.isEmpty()) {
+            throw new IllegalArgumentException("장바구니에 해당 상품이 없습니다.");
+        }
+        
+        CartItem item = items.get(0);
+        int current = item.getQuantity();
+        if (current > 1) {
+            item.setQuantity(current - 1);
+            cartItemRepository.save(item);
+            return item.getQuantity();
+        } else {
+            // current == 1 → 더 이상 감소하지 않음
+            return 1;
+        }
+    }
 
-    public List<CartItem> allCartItem(User user){
-        List<CartItem> cartItem = cartItemRepository.findByUser(user);
-        return cartItem;
+
+    public List<CartItemResponse> allCartItemResponse(User user) {
+        List<CartItem> items = cartItemRepository.findByUser(user);
+        return items.stream()
+            .map(item -> new CartItemResponse(
+                item.getId(),
+                item.getQuantity(),
+                item.getCap().getId(),
+                item.getCap().getName(),
+                item.getCap().getPrice(),
+                item.getCap().getMainImageUrl(),
+                item.getSize()
+            ))
+            .collect(Collectors.toList());
     }
     
+    // 특정 사용자, 상품, 사이즈의 장바구니 수량 조회
+    public int getCartItemQuantity(User user, Cap cap, String size) {
+        // size가 빈 문자열이거나 null인 경우 null로 통일
+        if (size != null && size.trim().isEmpty()) {
+            size = null;
+        }
+        
+        // 먼저 정확한 사이즈로 찾기
+        Optional<CartItem> itemOpt = cartItemRepository.findByUserAndCapAndSize(user, cap, size);
+        
+        // 찾지 못했고 size가 null이 아닌 경우, null 사이즈로 저장된 아이템 찾기
+        if (itemOpt.isEmpty() && size != null) {
+            itemOpt = cartItemRepository.findByUserAndCapAndSize(user, cap, null);
+        }
+        
+        return itemOpt.map(CartItem::getQuantity).orElse(0);
+    }
 }

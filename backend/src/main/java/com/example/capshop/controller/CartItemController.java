@@ -20,6 +20,7 @@ import com.example.capshop.service.UserService;
 
 import lombok.RequiredArgsConstructor;
 
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/cart")
@@ -33,13 +34,15 @@ public class CartItemController {
         User user = userService.findById(request.getUserId());
         Cap cap = capService.findById(request.getCapId());
         int quantity = request.getQuantity();
-        cartItemService.addToCart(user, cap, quantity);
+        String size = request.getSize();
+        cartItemService.addToCart(user, cap, quantity, size);
     }
     @PostMapping("/increase")
     public ResponseEntity<Integer> increase(@RequestBody AddCartItemRequest request) {
         User user = userService.findById(request.getUserId());
         Cap  cap  = capService.findById(request.getCapId());
-        int qty   = cartItemService.increaseQuantity(user, cap);
+        String size = request.getSize();
+        int qty   = cartItemService.increaseQuantity(user, cap, size);
         return ResponseEntity.ok(qty);
     }
 
@@ -48,7 +51,8 @@ public class CartItemController {
     public ResponseEntity<Integer> decrease(@RequestBody AddCartItemRequest request) {
         User user = userService.findById(request.getUserId());
         Cap  cap  = capService.findById(request.getCapId());
-        int qty   = cartItemService.decreaseQuantity(user, cap);
+        String size = request.getSize();
+        int qty   = cartItemService.decreaseQuantity(user, cap, size);
         return ResponseEntity.ok(qty);
     }
 
@@ -57,14 +61,27 @@ public class CartItemController {
     public ResponseEntity<Void> delete(@RequestBody AddCartItemRequest request) {
         User user = userService.findById(request.getUserId());
         Cap  cap  = capService.findById(request.getCapId());
-        cartItemService.deleteCartItem(user, cap);
+        String size = request.getSize();
+        cartItemService.deleteCartItem(user, cap, size);
         return ResponseEntity.noContent().build();
     }
     @GetMapping("/findAll")
-    public List<CartItem> findAllCartItem(@RequestParam("userId") Long userId) {
+        public List<com.example.capshop.dto.CartItemResponse> findAllCartItem(@RequestParam("userId") Long userId) {
+            User user = userService.findById(userId);
+            return cartItemService.allCartItemResponse(user);
+    }
+    
+    // 특정 상품의 특정 사이즈가 장바구니에 몇 개 담겨있는지 확인
+    @GetMapping("/find")
+    public ResponseEntity<Integer> findCartItemQuantity(
+            @RequestParam(name = "userId") Long userId, 
+            @RequestParam(name = "capId") Long capId,
+            @RequestParam(name = "size") String size) {
         User user = userService.findById(userId);
-        return cartItemService.allCartItem(user);
+        Cap cap = capService.findById(capId);
+        
+        int quantity = cartItemService.getCartItemQuantity(user, cap, size);
+        return ResponseEntity.ok(quantity);
     }
 
-    
 }

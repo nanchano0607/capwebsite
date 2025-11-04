@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>주소 검색 (프론트 전용)</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; margin: 0; }
+    header { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }
+    h1 { margin: 0; font-size: 16px; }
+    .wrap { padding: 12px 16px; }
+    .row { display: flex; gap: 8px; }
+    input[type="text"] { flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+    button { padding: 10px 14px; border: 0; border-radius: 8px; background:#111827; color:#fff; font-weight:600; cursor:pointer; }
+    ul { list-style: none; padding: 0; margin: 12px 0 0; }
+    li { border:1px solid #e5e7eb; border-radius:10px; padding:12px; margin:10px 0; cursor:pointer; }
+    li:hover { background: #f9fafb; }
+    .addr { font-size:14px; }
+    .zip { font-size:12px; color:#6b7280; margin-top:4px; }
+    .sub { font-size:12px; color:#374151; margin-top:6px; }
+    .foot { padding: 8px 16px 16px; color:#6b7280; font-size:12px; }
+  </style>
+</head>
+<body>
+  <header><h1>주소 검색</h1></header>
+  <div class="wrap">
+    <div class="row">
+      <input id="keyword" type="text" placeholder="도로명/건물명/지번으로 검색" />
+      <button id="btnSearch" type="button">검색</button>
+    </div>
+    <ul id="result"></ul>
+  </div>
+  <div class="foot">검색 결과를 클릭하면 창이 닫히고, 선택한 주소가 반영됩니다.</div>
+
+  <script>
+    (function(){
+      // ✅ 발급받은 '주소검색 API' 승인키 입력
+      var CONFIRM_KEY = "devU01TX0FVVEgyMDI1MTAxNzE3NDYwNjExNjMzODg="; 
+      // JSONP 요청 유틸
+      function jsonp(url, params, cb) {
+        var cbName = "__juso_cb_" + Date.now() + "_" + Math.floor(Math.random()*1e6);
+        params = params || {};
+        params.callback = cbName;
+        var qs = Object.keys(params).map(function(k){
+          return encodeURIComponent(k) + "=" + encodeURIComponent(params[k] == null ? "" : params[k]);
+        }).join("&");
+        var scr = document.createElement("script");
+        scr.src = url + (url.indexOf("?")>=0 ? "&" : "?") + qs;
+        window[cbName] = function(payload){
+          try { cb(null, payload); } finally {
+            delete window[cbName];
+            document.body.removeChild(scr);
+          }
+        };
+        scr.onerror = function(){
+          try { cb(new Error("JSONP 요청 실패")); } finally {
+            delete window[cbName];
+            document.body.removeChild(scr);
+          }
+        };
+        document.body.appendChild(scr);
+      }
+
+      var $keyword = document.getElementById("keyword");
+      var $btn = document.getElementById("btnSearch");
+      var $ul = document.getElementById("result");
+
+      function render(list){
+        $ul.innerHTML = "";
+        if (!list || !list.length) {
+          $ul.innerHTML = "<li><div class='addr'>검색 결과가 없습니다.</div></li>";
+          return;
+        }
+        list.forEach(function(it){
+          var li = document.createElement("li");
+          li.innerHTML = [
+            "<div class='addr'>", (it.roadAddr || it.jibunAddr || ""), "</div>",
+            it.zipNo ? "<div class='zip'>우편번호 " + it.zipNo + "</div>" : "",
+            (it.jibunAddr && it.roadAddr) ? "<div class='sub'>지번: " + it.jibunAddr + "</div>" : ""
+          ].join("");
+          li.addEventListener("click", function(){
+            // ✅ 선택한 값 부모창으로 송신 (요청대로 parentOrigin 검사 제거)
+            var payload = {
+              roadAddr: it.roadAddr || "",
+              jibunAddr: it.jibunAddr || "",
+              zipNo: it.zipNo || "",
+              // UI에서 상세주소 입력을 따로 받지 않으니 부모창에서 입력받도록 빈값 전달
+              addrDetail: "",
+              fullAddress: it.roadAddr || it.jibunAddr || ""
+            };
+            try {
+              if (window.opener && !window.opener.closed) {
+                window.opener.postMessage(payload, "*"); // ← 보안체크 제거 버전
+              }
+            } catch(e){}
+            setTimeout(function(){ window.close(); }, 100);
+          });
+          $ul.appendChild(li);
+        });
+      }
+
+      function search(){
+        var kw = ($keyword.value || "").trim();
+        if (!kw) { $keyword.focus(); return; }
+        // ✅ JSONP 엔드포인트 (검색 API)
+        jsonp("https://business.juso.go.kr/addrlink/addrLinkApiJsonp.do", {
+          confmKey: CONFIRM_KEY,
+          keyword: kw,
+          resultType: "json",
+          currentPage: "1",
+          countPerPage: "20"
+        }, function(err, data){
+          if (err) { alert("검색 실패: " + err.message); return; }
+          // 응답 형식: data.results.juso (배열)
+          var list = (data && data.results && data.results.juso) ? data.results.juso : [];
+          render(list);
+        });
+      }
+
+      $btn.addEventListener("click", search);
+      $keyword.addEventListener("keydown", function(e){ if (e.key === "Enter") search(); });
+
+      // 처음 포커스
+      setTimeout(function(){ $keyword.focus(); }, 50);
+    })();
+  </script>
+</body>
+</html>

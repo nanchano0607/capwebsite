@@ -1,7 +1,8 @@
 package com.example.capshop.repository;
 
-import com.example.capshop.domain.Order;
-import com.example.capshop.domain.OrderItem;
+import com.example.capshop.domain.order.Order;
+import com.example.capshop.domain.order.OrderItem;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

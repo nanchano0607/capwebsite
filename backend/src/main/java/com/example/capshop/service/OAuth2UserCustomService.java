@@ -1,9 +1,12 @@
 package com.example.capshop.service;
 
+import com.example.capshop.domain.AuthProvider;
 import com.example.capshop.domain.User;
 import com.example.capshop.dto.UserProfile;
 import com.example.capshop.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -18,6 +21,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class OAuth2UserCustomService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
@@ -30,6 +34,7 @@ public class OAuth2UserCustomService implements OAuth2UserService<OAuth2UserRequ
     @Override
     public OAuth2User loadUser(OAuth2UserRequest req) throws OAuth2AuthenticationException {
         String registrationId = req.getClientRegistration().getRegistrationId(); // "naver" | "kakao" | "google"
+        log.info("[OAuth2UserCustomService] registrationId={}", registrationId);
 
         Map<String, Object> normalized;
         if ("naver".equals(registrationId)) {
@@ -47,7 +52,8 @@ public class OAuth2UserCustomService implements OAuth2UserService<OAuth2UserRequ
         // 권한 및 OAuth2User 생성(식별 키를 'provider_user_id'로 통일)
         Collection<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
         OAuth2User user = new DefaultOAuth2User(authorities, normalized, "provider_user_id");
-
+        String provider = (String) normalized.get("provider");
+        log.info("[OAuth2UserCustomService] normalized.provider={}", provider);
         // JIT 가입/업데이트
         saveOrUpdate(user);
 
@@ -121,6 +127,7 @@ public class OAuth2UserCustomService implements OAuth2UserService<OAuth2UserRequ
         m.put("email", email);
         m.put("name", name);
         m.put("picture", picture);
+        log.info("[mapGoogle] provider: {}", m.get("provider"));
         return m;
     }
 
@@ -128,20 +135,25 @@ public class OAuth2UserCustomService implements OAuth2UserService<OAuth2UserRequ
 
     // 유저가 있으면 업데이트, 없으면 생성
     private User saveOrUpdate(OAuth2User oAuth2User) {
-        // 평탄화된 공통 키를 받아 DTO 구성
         UserProfile profile = new UserProfile(oAuth2User.getAttributes());
 
-        // email이 null일 수 있으니 null-safe하게 처리
+        AuthProvider provider = profile.getProvider(); // enum 타입으로 받음
+
         User user = null;
         if (profile.getEmail() != null) {
             user = userRepository.findByEmail(profile.getEmail())
-                    .map(entity -> entity.update(profile.getName()))
+                    .map(entity -> {
+                        entity.update(profile.getName());
+                        entity.setOauthProvider(provider); // enum 타입으로 저장
+                        return entity;
+                    })
                     .orElse(null);
         }
         if (user == null) {
             user = User.builder()
-                    .email(profile.getEmail()) // nullable 가능
+                    .email(profile.getEmail())
                     .name(profile.getName())
+                    .oauthProvider(provider) // enum 타입으로 저장
                     .build();
         }
 

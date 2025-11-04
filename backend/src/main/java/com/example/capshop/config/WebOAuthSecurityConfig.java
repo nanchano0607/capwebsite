@@ -13,7 +13,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -33,6 +33,10 @@ public class WebOAuthSecurityConfig {
     private final TokenProvider tokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserService userService;
+    
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins}")
+    private String allowedOriginsProp;
+
 
     @Bean
     public WebSecurityCustomizer configure() {
@@ -77,7 +81,8 @@ public class WebOAuthSecurityConfig {
                 .authorizationEndpoint(endpoint ->
                     endpoint.authorizationRequestRepository(oAuth2AuthorizationRequestBasedOnCookieRepository()))
                 .successHandler(oAuth2SuccessHandler())      // OAuth2SuccessHandler는 @Component 제거하고 @Bean만 사용
-                .userInfoEndpoint(endpoint -> endpoint.userService(oAuth2UserCustomService))
+                .userInfoEndpoint(endpoint -> endpoint.userService(oAuth2UserCustomService)
+                .oidcUserService(new OidcUserService()) )
             )
             .exceptionHandling(exception -> exception
                 .defaultAuthenticationEntryPointFor(
@@ -110,17 +115,15 @@ public class WebOAuthSecurityConfig {
         return new OAuth2AuthorizationRequestBasedOnCookieRepository();
     }
 
-    @Bean
-    public BCryptPasswordEncoder bCryptPasswordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
     /** CORS: 프론트(5173)에서 쿠키 전송 허용 */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+    // Read configured origins from properties
+    List<String> allowedOrigins = List.of(allowedOriginsProp.split("\\s*,\\s*"));
+
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowCredentials(true);
-        cfg.setAllowedOrigins(List.of("http://localhost:5173"));
+        cfg.setAllowedOrigins(allowedOrigins);
         cfg.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
 

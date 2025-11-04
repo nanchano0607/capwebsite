@@ -12,5 +12,6 @@ public class AddCartItemRequest {
     private Long userId;
     private Long capId;
     private int quantity;
+    private String size;  // 선택된 사이즈 추가
     
 }

@@ -1,32 +1,252 @@
 package com.example.capshop.controller;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
+
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.capshop.config.TokenProvider;
+import com.example.capshop.domain.RefreshToken;
 import com.example.capshop.domain.User;
+import com.example.capshop.domain.UserConsent;
+import com.example.capshop.dto.LoginRequest;
+import com.example.capshop.dto.UserAdminResponse;
+import com.example.capshop.dto.SignupRequest;
+import com.example.capshop.repository.RefreshTokenRepository;
+import com.example.capshop.repository.UserConsentRepository;
 import com.example.capshop.service.UserService;
+import com.example.capshop.util.CookieUtil;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/user")
+@RequestMapping
 public class UserController {
     private final UserService userService;
+    private final UserConsentRepository userConsentRepository;
+    private final TokenProvider tokenProvider;
+    private final RefreshTokenRepository refreshTokenRepository;
     
-    @PostMapping("/save")
+    @PostMapping("user/save")
     public void saveUser(@RequestBody User user){
         userService.save(user);
     }
-    @GetMapping("/all")
-    public List<User> allUser(){
-        return userService.findAll();
+    // 관리자: 사용자 목록 (DTO로 반환하여 순환 참조/중첩 방지)
+    @GetMapping("/api/admin/users")
+    public List<UserAdminResponse> allUser(){
+        return userService.findAll().stream()
+                .map(UserAdminResponse::new)
+                .toList();
+    }
 
+    // 관리자: 사용자 ID 목록 (프론트 배치 로딩용)
+    @GetMapping("/api/admin/users/ids")
+    public List<Long> allUserIds() {
+        return userService.findAll().stream()
+                .map(User::getId)
+                .toList();
+    }
+
+    // 관리자: 개별 사용자 조회 (DTO)
+    @GetMapping("/api/admin/users/{id}")
+    public ResponseEntity<UserAdminResponse> getUser(@PathVariable("id") Long id) {
+        User u = userService.findById(id);
+        if (u == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(new UserAdminResponse(u));
+    }
+
+    // 관리자: 권한 토글 (승격/해제)
+    @PostMapping("/api/admin/users/{id}/toggle-admin")
+    public ResponseEntity<Map<String, Object>> toggleAdmin(@PathVariable("id") Long id) {
+        try {
+            boolean isAdmin = userService.toggleAdmin(id);
+            String message = isAdmin ? "관리자 권한이 부여되었습니다." : "관리자 권한이 해제되었습니다.";
+            return ResponseEntity.ok(Map.of(
+                "message", message,
+                "admin", isAdmin
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // 개별 사용자 정보 조회 (본인용)
+    @GetMapping("/api/user/{id}")
+    public ResponseEntity<UserAdminResponse> getUserProfile(@PathVariable("id") Long id) {
+        User u = userService.findById(id);
+        if (u == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(new UserAdminResponse(u));
+    }
+
+    // 사용자 정보 수정 (본인용)
+    @PostMapping("/api/user/{id}/update")
+    public ResponseEntity<Map<String, Object>> updateUserProfile(
+            @PathVariable("id") Long id,
+            @RequestBody Map<String, Object> request) {
+        try {
+            String name = (String) request.get("name");
+            String phone = (String) request.get("phone");
+            Boolean emailMarketing = (Boolean) request.get("emailMarketing");
+            Boolean smsMarketing = (Boolean) request.get("smsMarketing");
+
+            userService.updateUserProfile(id, name, phone, emailMarketing, smsMarketing);
+            
+            return ResponseEntity.ok(Map.of("message", "정보가 수정되었습니다."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // 계정 탈퇴 (본인용)
+    @PostMapping("/api/user/{id}/delete")
+    public ResponseEntity<Map<String, String>> deleteUserAccount(@PathVariable("id") Long id) {
+        try {
+            userService.deleteUserAccount(id);
+            return ResponseEntity.ok(Map.of("message", "계정이 탈퇴되었습니다."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
     
+    @PostMapping("/auth/signup")
+    public ResponseEntity<String> signup(@RequestBody SignupRequest request, HttpServletRequest httpRequest) {
+        try {
+            // 1. IP 주소와 User-Agent 추출
+            String clientIp = getClientIp(httpRequest);
+            String userAgent = httpRequest.getHeader("User-Agent");
+            
+            // 2. 사용자 생성
+            User user = userService.createLocalUser(request.getEmail(), request.getPassword(), request.getName());
+            
+            // 3. 동의 정보 저장 (IP, User-Agent 포함)
+            saveConsents(user, request.getAgreements(), clientIp, userAgent);
+            
+            return ResponseEntity.ok("회원가입 성공");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/auth/login")
+    public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletResponse response) {
+        Optional<User> userOpt = userService.authenticateLocalUser(request.getEmail(), request.getPassword());
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            
+            // 1) RT 발급 + DB 저장
+            String refreshToken = tokenProvider.generateToken(user, Duration.ofDays(14));
+            saveRefreshToken(user.getId(), refreshToken);
+            
+            // 2) RT를 HttpOnly 쿠키로 심기
+            int maxAge = (int) Duration.ofDays(14).toSeconds();
+            CookieUtil.addCookie(response, "refresh_token", refreshToken, maxAge, false, "Lax");
+            
+            // 3) Access Token 발급 + 응답에 포함
+            String accessToken = tokenProvider.generateToken(user, Duration.ofHours(2));
+            
+            // 응답 데이터 생성
+            Map<String, Object> responseData = Map.of(
+                "message", "로그인 성공",
+                "accessToken", accessToken,
+                "user", Map.of(
+                    "id", user.getId(),
+                    "email", user.getEmail(),
+                    "name", user.getName(),
+                    "isAdmin", user.isAdmin()
+                )
+            );
+            
+            // 로그 출력으로 응답 데이터 확인
+            System.out.println("Login Response: " + responseData);
+            
+            return ResponseEntity.ok(responseData);
+        } else {
+            return ResponseEntity.badRequest().body("이메일 또는 비밀번호가 잘못되었습니다.");
+        }
+    }
+    
+    private void saveRefreshToken(Long userId, String newRefreshToken) {
+        RefreshToken refreshToken = refreshTokenRepository.findByUserId(userId)
+                .map(entity -> entity.update(newRefreshToken))
+                .orElse(new RefreshToken(userId, newRefreshToken));
+        
+        refreshTokenRepository.save(refreshToken);
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty()) {
+            ip = request.getHeader("X-Real-IP");
+        }
+        if (ip == null || ip.isEmpty()) {
+            ip = request.getRemoteAddr();
+        }
+        return ip;
+    }
+
+    private void saveConsents(User user, Map<String, Boolean> agreements, String ip, String userAgent) {
+        for (Map.Entry<String, Boolean> entry : agreements.entrySet()) {
+            UserConsent consent = new UserConsent();
+            consent.setUser(user);
+            consent.setConsentType(entry.getKey()); // "TERMS", "PRIVACY" 등
+            consent.setAgreed(entry.getValue());
+            consent.setVersion("v2025.09");
+            consent.setTimestamp(Instant.now());
+            consent.setIp(ip);
+            consent.setUserAgent(userAgent);
+            
+            userConsentRepository.save(consent);
+        }
+    }
+    
+    // 주소 목록 조회
+    @GetMapping("/api/user/{userId}/addresses")
+    public ResponseEntity<List<String>> getAddresses(@PathVariable("userId") Long userId) {
+        List<String> addresses = userService.getAddresses(userId);
+        return ResponseEntity.ok(addresses);
+    }
+    
+    // 주소 추가
+    @PostMapping("/api/user/{userId}/addresses")
+    public ResponseEntity<Map<String, String>> addAddress(
+            @PathVariable("userId") Long userId,
+            @RequestBody Map<String, String> request) {
+        String address = request.get("address");
+        if (address == null || address.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "주소를 입력해주세요."));
+        }
+        userService.addAddress(userId, address);
+        return ResponseEntity.ok(Map.of("message", "주소가 추가되었습니다."));
+    }
+    
+    // 주소 삭제
+    @PostMapping("/api/user/{userId}/addresses/remove")
+    public ResponseEntity<Map<String, String>> removeAddress(
+            @PathVariable("userId") Long userId,
+            @RequestBody Map<String, String> request) {
+        String address = request.get("address");
+        if (address == null || address.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "주소를 입력해주세요."));
+        }
+        userService.removeAddress(userId, address);
+        return ResponseEntity.ok(Map.of("message", "주소가 삭제되었습니다."));
+    }
 }

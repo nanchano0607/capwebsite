@@ -1,4 +1,6 @@
-package com.example.capshop.domain;
+package com.example.capshop.domain.order;
+import com.example.capshop.domain.Cap;
+
 import jakarta.persistence.Entity;
 
 import jakarta.persistence.GeneratedValue;
@@ -25,6 +27,8 @@ public class OrderItem {
     private int quantity;
 
     private Long orderPrice;
+    
+    private String selectedSize; // 주문 당시 선택한 사이즈 (예: "M", "FREE")
 
     public OrderItem() {}
 
@@ -32,6 +36,13 @@ public class OrderItem {
         this.cap = cap;
         this.quantity = quantity;
         this.orderPrice = orderPrice;
+    }
+    
+    public OrderItem(Cap cap, int quantity, Long orderPrice, String selectedSize) {
+        this.cap = cap;
+        this.quantity = quantity;
+        this.orderPrice = orderPrice;
+        this.selectedSize = selectedSize;
     }
 
     public Long getSubTotal() {
