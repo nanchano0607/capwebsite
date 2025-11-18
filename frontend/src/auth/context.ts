@@ -35,9 +35,11 @@ export const AuthCtx = createContext<{
   loading: boolean;
   refresh: () => void;
   setUser: (u: User) => void;
+  logout?: () => Promise<void>;
 }>({
   user: null,
   loading: true,
   refresh: () => {},
   setUser: () => {},
+  logout: async () => {},
 });

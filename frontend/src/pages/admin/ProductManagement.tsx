@@ -88,41 +88,7 @@ export default function ProductManagement({
     }
   };
 
-  const handleUpdateStock = async (capId: number, currentStock: number) => {
-    const newStock = prompt(
-      `새로운 재고 수량을 입력하세요 (현재: ${currentStock ?? "알 수 없음"}):`,
-      String(currentStock ?? 0)
-    );
-    if (newStock === null) return;
-
-    const stockNumber = parseInt(newStock);
-    if (isNaN(stockNumber) || stockNumber < 0) {
-      alert("올바른 숫자를 입력해주세요.");
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem("access_token");
-      const response = await fetch(`${SERVER}/cap/updateStock/${capId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(stockNumber),
-      });
-
-      if (response.ok) {
-        alert("재고가 업데이트되었습니다.");
-        await fetchCaps();
-      } else {
-        alert("재고 업데이트에 실패했습니다.");
-      }
-    } catch (error) {
-      console.error("재고 업데이트 실패:", error);
-      alert("오류가 발생했습니다.");
-    }
-  };
+  
 
   // 사이즈별 품절 처리
   const handleMarkSizeOutOfStock = async (capId: number, size: string, capName: string) => {
@@ -230,11 +196,11 @@ export default function ProductManagement({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold">상품 관리</h2>
-          <span className="text-sm text-gray-500">({caps.length})</span>
+          <span className="text-sm text-orange-800">({caps.length})</span>
         </div>
         <button
           onClick={onToggle}
-          className="px-3 py-1 border rounded text-sm hover:bg-gray-50"
+          className="px-3 py-1 border rounded text-sm bg-blue-300 hover:bg-blue-200"
         >
           {isOpen ? "접기" : "펼치기"}
         </button>
@@ -245,13 +211,13 @@ export default function ProductManagement({
           <div className="flex items-center justify-end gap-2 mt-4">
             <button
               onClick={() => navigate("/register")}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded bg-blue-300 hover:bg-blue-200"
             >
               상품 등록
             </button>
             <button
               onClick={fetchCaps}
-              className="px-3 py-1 border rounded text-sm hover:bg-gray-50"
+              className="px-3 py-1 border rounded text-sm bg-blue-300 hover:bg-blue-200"
             >
               새로고침
             </button>
@@ -274,14 +240,14 @@ export default function ProductManagement({
                         <div className="flex items-start justify-between mb-2">
                           <div>
                             <h3 className="font-semibold text-lg">{cap.name}</h3>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-black">
                               색상: {cap.color}
                             </p>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-black">
                               가격: {cap.price.toLocaleString()}원
                             </p>
                             <div className="flex items-center gap-2">
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-black">
                                 재고: {cap.stock ?? 0}개
                               </p>
                               {(cap.stock ?? 0) === 0 && (
@@ -300,15 +266,15 @@ export default function ProductManagement({
                             {/* 사이즈별 재고 표시 */}
                             {cap.stocks && cap.stocks.length > 0 && (
                               <div className="mt-2">
-                                <p className="text-sm font-medium text-gray-700 mb-1">사이즈별 재고:</p>
+                                <p className="text-sm font-medium text-black mb-1">사이즈별 재고:</p>
                                 <div className="flex flex-wrap gap-2">
                                   {cap.stocks.map((sizeStock) => (
                                     <div 
                                       key={sizeStock.size}
-                                      className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs"
+                                      className="flex items-center gap-1 px-2 py-1 rounded text-xs"
                                     >
                                       <span className="font-medium">{sizeStock.size}:</span>
-                                      <span className={sizeStock.stock === 0 ? "text-red-600 font-medium" : ""}>{sizeStock.stock}개</span>
+                                      <span className={sizeStock.stock === 0 ? "text-red-800 font-medium" : ""}>{sizeStock.stock}개</span>
                                       <button
                                         onClick={() => handleUpdateSizeStock(cap.id, sizeStock.size, sizeStock.stock)}
                                         className="ml-1 px-1 py-0.5 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs"
@@ -335,14 +301,6 @@ export default function ProductManagement({
                         <div className="flex gap-2 justify-end">
                           <button
                             onClick={() =>
-                              handleUpdateStock(cap.id, cap.stock ?? 0)
-                            }
-                            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                          >
-                            재고 수정
-                          </button>
-                          <button
-                            onClick={() =>
                               handleMarkOutOfStock(cap.id, cap.name)
                             }
                             className="px-3 py-1.5 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700"
@@ -356,7 +314,7 @@ export default function ProductManagement({
                             }
                             className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700"
                           >
-                            삭제
+                            제품 삭제
                           </button>
                         </div>
                       </div>

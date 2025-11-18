@@ -6,11 +6,13 @@ import java.util.List;
 
 import com.example.capshop.domain.Status;
 import com.example.capshop.domain.User;
+import com.example.capshop.domain.UserCoupon;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -55,8 +57,23 @@ public class Order {
 
     private Long total_price;
 
+    // 할인 정보 추가
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "used_user_coupon_id")
+    private UserCoupon usedUserCoupon;
+
+    private Long original_price = 0L;       // 할인 전 원가
+    private Long coupon_discount = 0L;      // 쿠폰 할인액
+    private Long points_discount = 0L;      // 포인트 할인액
+    private Long total_discount = 0L;       // 총 할인액
+    private Long final_price = 0L;          // 최종 결제 금액
+
     private LocalDateTime orderDate = LocalDateTime.now();
     private LocalDateTime deliveredAt;  // 배송 완료 시각 (반품 기한 계산용)
+    
+    // 구매확정 관련
+    private boolean confirmed = false;           // 구매확정 여부
+    private LocalDateTime confirmedAt;           // 구매확정 시간
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItem> orderItems = new ArrayList<>();
@@ -101,11 +118,33 @@ public class Order {
     }
 
     public boolean isReturnable() {
+        // 구매확정된 주문은 반품 불가
+        if (this.confirmed) {
+            return false;
+        }
+        
         if (this.status != Status.DELIVERED || this.deliveredAt == null) {
             return false;
         }
         // 배송 완료 후 7일 이내
         return LocalDateTime.now().isBefore(this.deliveredAt.plusDays(7));
+    }
+    
+    // 구매확정
+    public void confirmPurchase() {
+        if (this.status != Status.DELIVERED) {
+            throw new IllegalStateException("배송 완료된 주문만 구매확정할 수 있습니다.");
+        }
+        if (this.confirmed) {
+            throw new IllegalStateException("이미 구매확정된 주문입니다.");
+        }
+        this.confirmed = true;
+        this.confirmedAt = LocalDateTime.now();
+    }
+    
+    // 구매확정 가능 여부 확인 (배송 완료 상태이고 아직 확정 안 된 경우)
+    public boolean canConfirm() {
+        return this.status == Status.DELIVERED && !this.confirmed;
     }
 
     public void approveReturn() {
@@ -135,5 +174,15 @@ public class Order {
         }
         this.status = Status.DELIVERED;
         this.deliveredAt = LocalDateTime.now();
+    }
+
+    public void applyCouponDiscount(long discount, UserCoupon uc) {
+        this.usedUserCoupon = uc;                 // 어떤 쿠폰을 썼는지만 연결
+        this.coupon_discount = Math.max(0L, discount);
+        long points = this.points_discount == null ? 0L : this.points_discount;
+        this.total_discount = points + this.coupon_discount;
+
+        long base = this.total_price == null ? 0L : this.total_price;
+        this.final_price = Math.max(0L, base - this.total_discount);
     }
 }

@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.capshop.domain.Cap;
-import com.example.capshop.domain.CartItem;
 import com.example.capshop.domain.User;
 import com.example.capshop.dto.AddCartItemRequest;
 import com.example.capshop.service.CapService;

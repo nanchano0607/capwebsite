@@ -107,6 +107,13 @@ export default function BuyPage() {
   const handleBuy = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 로그인 필요 검사
+    if (!user) {
+      alert('로그인이 필요합니다. 로그인 후 다시 시도해주세요.');
+      navigate('/login');
+      return;
+    }
+
     // 간단 유효성 (선택)
     if (!name.trim()) return alert("이름을 입력해주세요.");
     if (!address.trim()) return alert("주소를 입력 또는 검색해주세요.");
@@ -191,7 +198,7 @@ export default function BuyPage() {
             type="text"
             value={name}
             onChange={(e)=>setName(e.target.value)}
-            className="w-full border rounded px-3 py-2"
+            className="w-full border border-gray-500 rounded px-3 py-2 bg-gray-300"
             required
           />
         </div>
@@ -205,7 +212,7 @@ export default function BuyPage() {
               <button
                 type="button"
                 onClick={() => setShowAddressSelect(!showAddressSelect)}
-                className="text-sm text-blue-600 hover:underline"
+                className="text-sm text-blue-700 hover:underline font-medium"
               >
                 {showAddressSelect ? "새 주소 입력하기" : "저장된 주소에서 선택하기"}
               </button>
@@ -224,7 +231,7 @@ export default function BuyPage() {
                     setShowAddressSelect(false);
                     setIsAddressFromSaved(true);
                   }}
-                  className="p-3 border rounded cursor-pointer hover:bg-slate-50 transition-colors"
+                  className="p-3 border border-gray-500 rounded cursor-pointer hover:bg-gray-400 transition-colors bg-gray-300"
                 >
                   <span className="text-sm">{addr}</span>
                 </div>
@@ -239,7 +246,7 @@ export default function BuyPage() {
                   value={address}
                   readOnly
                   onClick={openJusoPopup}
-                  className="flex-1 border rounded px-3 py-2 bg-slate-100 cursor-pointer"
+                  className="flex-1 border border-gray-500 rounded px-3 py-2 bg-gray-300 cursor-pointer"
                   placeholder="주소검색 버튼을 눌러 선택하세요"
                   title="주소는 검색으로만 입력됩니다"
                   required
@@ -247,7 +254,7 @@ export default function BuyPage() {
                 <button
                   type="button"
                   onClick={openJusoPopup}
-                  className="px-4 py-2 bg-slate-800 text-white rounded"
+                  className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-blue-700"
                 >
                   주소검색
                 </button>
@@ -260,7 +267,7 @@ export default function BuyPage() {
                   value={addressDetail}
                   onChange={(e)=>setAddressDetail(e.target.value)}
                   placeholder="상세주소 (동/층/호)"
-                  className="mt-2 w-full border rounded px-3 py-2"
+                  className="mt-2 w-full border border-gray-500 rounded px-3 py-2 bg-gray-300"
                 />
               )}
             </>
@@ -273,27 +280,31 @@ export default function BuyPage() {
             type="text"
             value={phone}
             onChange={(e)=>setPhone(e.target.value)}
-            className="w-full border rounded px-3 py-2"
+            className="w-full border border-gray-500 rounded px-3 py-2 bg-gray-300"
             placeholder="- 없이 숫자만 입력해주세요 (예: 01012345678)"
             required
           />
         </div>
 
         {/* 주문 요약 */}
-        <div className="mt-6 border rounded-lg p-4 bg-slate-50">
+        <div className="mt-6 border border-gray-500 rounded-lg p-4 bg-gray-300">
           <div className="font-semibold mb-2">주문 내역</div>
           {items.length === 0 ? (
-            <div className="text-slate-500">
+            <div className="text-gray-700">
               주문할 상품이 없습니다. {" "}
-              <Link to="/cart" className="text-blue-700 underline">장바구니</Link> 또는 {" "}
-              <Link to="/cap" className="text-blue-700 underline">상품 목록</Link>에서 선택하세요.
+              <Link to="/cart" className="text-gray-900 underline font-medium">장바구니</Link> 또는 {" "}
+              <Link to="/cap" className="text-gray-900 underline font-medium">상품 목록</Link>에서 선택하세요.
             </div>
           ) : (
             <>
               <ul className="space-y-2">
                 {items.map((it, idx) => (
                   <li key={idx} className="flex justify-between text-sm">
-                    <span>{it.capName} × {it.quantity}</span>
+                    <span>
+                      {it.capName}
+                      {it.size && <span className="text-red-800"> ({it.size})</span>}
+                      {" × "}{it.quantity}
+                    </span>
                     <span>{(it.price * it.quantity).toLocaleString()}원</span>
                   </li>
                 ))}
@@ -312,7 +323,7 @@ export default function BuyPage() {
 
         <button
           type="submit"
-          className="w-full py-2 bg-blue-700 text-white rounded font-semibold"
+          className="w-full py-2 bg-gray-600 text-white rounded font-semibold hover:bg-blue-700"
         >
           다음
         </button>

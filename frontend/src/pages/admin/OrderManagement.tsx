@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const SERVER = "http://localhost:8080";
 
@@ -30,6 +30,18 @@ export default function OrderManagement({ isOpen, onToggle }: OrderManagementPro
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [sortMode, setSortMode] = useState<"asc" | "desc">("asc");
+
+  const getOrderTime = (o: Order) => {
+    const t = new Date((o.orderDate ?? o.createdAt) as string).getTime();
+    return Number.isFinite(t) ? t : 0;
+  };
+
+  const displayedOrders = useMemo(() => {
+    const arr = [...orders];
+    arr.sort((a, b) => (sortMode === "asc" ? getOrderTime(a) - getOrderTime(b) : getOrderTime(b) - getOrderTime(a)));
+    return arr;
+  }, [orders, sortMode]);
 
   useEffect(() => {
     fetchOrders();
@@ -80,13 +92,13 @@ export default function OrderManagement({ isOpen, onToggle }: OrderManagementPro
 
   const getStatusColor = (status: string) => {
     const colorMap: { [key: string]: string } = {
-      ORDERED: "text-yellow-600",
-      SHIPPED: "text-indigo-600",
-      RETURN_SHIPPING: "text-orange-600",
-      DELIVERED: "text-green-600",
-      CANCELLED: "text-red-600",
-      RETURN_REQUESTED: "text-orange-600",
-      RETURNED: "text-gray-600",
+      ORDERED: "text-yellow-700",
+      SHIPPED: "text-indigo-700",
+      RETURN_SHIPPING: "text-orange-700",
+      DELIVERED: "text-green-700",
+      CANCELLED: "text-red-700",
+      RETURN_REQUESTED: "text-orange-700",
+      RETURNED: "text-gray-700",
     };
     const key = (status as any)?.toUpperCase?.() ?? status;
     return colorMap[key] || "text-gray-600";
@@ -251,12 +263,12 @@ export default function OrderManagement({ isOpen, onToggle }: OrderManagementPro
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold">주문 관리</h2>
           {!loading && (
-            <span className="text-sm text-gray-500">({orders.length})</span>
+            <span className="text-sm text-orange-800">({orders.length})</span>
           )}
         </div>
         <button
           onClick={onToggle}
-          className="px-3 py-1 border rounded text-sm hover:bg-gray-50"
+          className="px-3 py-1 border rounded text-sm bg-blue-300 hover:bg-blue-200"
         >
           {isOpen ? "접기" : "펼치기"}
         </button>
@@ -267,7 +279,7 @@ export default function OrderManagement({ isOpen, onToggle }: OrderManagementPro
           <div className="flex items-center justify-end gap-2 mt-4">
             <label className="text-sm text-gray-600">상태 필터</label>
             <select
-              className="border rounded px-2 py-1 text-sm"
+              className="border rounded px-2 py-1 text-sm bg-blue-300 hover:bg-blue-200"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -281,8 +293,14 @@ export default function OrderManagement({ isOpen, onToggle }: OrderManagementPro
               <option value="RETURNED">반품 완료</option>
             </select>
             <button
+              onClick={() => setSortMode((m) => (m === "asc" ? "desc" : "asc"))}
+              className="px-3 py-1 border rounded text-sm bg-blue-300 hover:bg-blue-200"
+            >
+              {sortMode === "asc" ? "최신순" : "시간순"}
+            </button>
+            <button
               onClick={fetchOrders}
-              className="px-3 py-1 border rounded text-sm hover:bg-gray-50"
+              className="px-3 py-1 border rounded text-sm bg-blue-300 hover:bg-blue-200"
             >
               새로고침
             </button>
@@ -290,21 +308,21 @@ export default function OrderManagement({ isOpen, onToggle }: OrderManagementPro
 
           <div className="mt-4">
             {loading ? (
-              <p className="text-gray-600">로딩 중...</p>
+              <p className="text-black">로딩 중...</p>
             ) : orders.length === 0 ? (
-              <p className="text-gray-600">주문이 없습니다.</p>
+              <p className="text-black">주문이 없습니다.</p>
             ) : (
               <div className="space-y-3">
-                {orders.map((order) => {
+                {displayedOrders.map((order) => {
                   const items = parseItems(order.itemsJson);
                   return (
                     <div key={order.id} className="border rounded p-4">
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <p className="text-sm text-gray-600 mb-1">
+                          <p className="text-sm text-black mb-1">
                             주문번호: <span className="font-mono">{order.orderId}</span>
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-black">
                             주문일: {new Date(order.orderDate ?? order.createdAt).toLocaleString("ko-KR")}
                           </p>
                         </div>

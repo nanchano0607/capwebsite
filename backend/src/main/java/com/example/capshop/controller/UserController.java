@@ -30,6 +30,8 @@ import com.example.capshop.util.CookieUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -40,6 +42,44 @@ public class UserController {
     private final UserConsentRepository userConsentRepository;
     private final TokenProvider tokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    
+    // 로그아웃: RT 삭제 + 쿠키 제거
+    @PostMapping("api/auth/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response,
+                                    @AuthenticationPrincipal User user) {
+        try {
+            System.out.println("[LOG] logout requested");
+            if (user != null) {
+                System.out.println("[LOG] logout user: id=" + user.getId() + ", email=" + user.getEmail());
+                refreshTokenRepository.findByUserId(user.getId()).ifPresent(rt -> {
+                    refreshTokenRepository.delete(rt);
+                    System.out.println("[LOG] deleted refresh token for userId=" + user.getId());
+                });
+            } else {
+                System.out.println("[LOG] logout anonymous request - trying cookie-based RT lookup");
+                CookieUtil.getCookieValue(request, "refresh_token").ifPresent(rt -> {
+                    System.out.println("[LOG] found refresh_token cookie value: " + rt);
+                    refreshTokenRepository.findByRefreshToken(rt).ifPresentOrElse(entity -> {
+                        refreshTokenRepository.delete(entity);
+                        System.out.println("[LOG] deleted refresh token by token value");
+                    }, () -> System.out.println("[LOG] no refresh token entity found for provided token"));
+                });
+            }
+
+            // 쿠키 삭제 (로컬: secure=false, sameSite=Lax)
+            CookieUtil.deleteCookie(response, "refresh_token", false, "Lax");
+            CookieUtil.deleteCookie(response, "access_token", false, "Lax");
+            System.out.println("[LOG] cleared cookies: refresh_token, access_token");
+
+            // SecurityContext 클리어
+            SecurityContextHolder.clearContext();
+            System.out.println("[LOG] security context cleared");
+
+            return ResponseEntity.ok(Map.of("message", "로그아웃 되었습니다."));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "로그아웃 중 오류가 발생했습니다."));
+        }
+    }
     
     @PostMapping("user/save")
     public void saveUser(@RequestBody User user){
@@ -85,6 +125,23 @@ public class UserController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    // 관리자: 사용자 상태 토글 (활성화/비활성화)
+    @PostMapping("/api/admin/users/{id}/toggle-status")
+    public ResponseEntity<Map<String, Object>> toggleUserStatus(@PathVariable("id") Long id) {
+        try {
+            boolean isDeleted = userService.toggleUserStatus(id);
+            String message = isDeleted ? "사용자가 비활성화되었습니다." : "사용자가 활성화되었습니다.";
+            return ResponseEntity.ok(Map.of(
+                "message", message,
+                "deleted", isDeleted
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+ 
 
     // 개별 사용자 정보 조회 (본인용)
     @GetMapping("/api/user/{id}")

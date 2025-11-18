@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
+import Lightbox from "../components/Lightbox";
 
 type Cap = {
   id: number;
@@ -16,6 +17,21 @@ type Cap = {
   sizeInfo: string;
 };
 
+type Review = {
+  id: number;
+  userId: number;
+  userName?: string;
+  capId: number;
+  capName: string;
+  orderId: number;
+  selectedSize: string;      // 구매한 상품 사이즈
+  rating: number;
+  content: string;
+  imageUrls: string[];
+  createdAt: string;
+  updatedAt?: string;
+};
+
 const SERVER = "http://localhost:8080";
 
 export default function CapDetailPage() {
@@ -24,6 +40,9 @@ export default function CapDetailPage() {
   const navigate = useNavigate();
 
   const [cap, setCap] = useState<Cap | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewStats, setReviewStats] = useState({ averageRating: 0, totalReviews: 0 });
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [size, setSize] = useState<string>("");
   const [message, setMessage] = useState<string | null>(null);
@@ -32,6 +51,8 @@ export default function CapDetailPage() {
 
   useEffect(() => {
     if (!id) return;
+    
+    // 상품 정보와 재고 조회
     fetch(`${SERVER}/cap/${id}`)
       .then((res) => res.json())
       .then((data) => {
@@ -47,7 +68,36 @@ export default function CapDetailPage() {
         }
       })
       .catch(() => setCap(null));
+    
+    // 리뷰 데이터 조회
+    fetchReviews();
   }, [id]);
+
+  const fetchReviews = async () => {
+    if (!id) return;
+    
+    try {
+      
+      // 해당 상품의 리뷰 목록 조회
+      const reviewsResponse = await fetch(`${SERVER}/reviews/cap/${id}`);
+      if (reviewsResponse.ok) {
+        const reviewsData = await reviewsResponse.json();
+        setReviews(reviewsData);
+      }
+      
+      // 리뷰 통계 조회
+      const statsResponse = await fetch(`${SERVER}/reviews/cap/${id}/statistics`);
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setReviewStats({
+          averageRating: statsData.averageRating || 0,
+          totalReviews: statsData.totalReviews || 0
+        });
+      }
+    } catch (error) {
+      console.error("리뷰 데이터 조회 실패:", error);
+    }
+  };
 
   // 사이즈 선택 시 해당 사이즈의 재고 업데이트
   useEffect(() => {
@@ -85,7 +135,12 @@ export default function CapDetailPage() {
   };
 
   const handleAddToCart = async () => {
-    if (!user) return toast("로그인이 필요합니다!");
+    if (!user) {
+      toast("로그인이 필요합니다!");
+      // 로그인 페이지로 이동
+      navigate("/login");
+      return;
+    }
     if (!cap) return;
     if (!size) return toast("사이즈를 선택해 주세요.");
 
@@ -203,6 +258,168 @@ export default function CapDetailPage() {
             />
           </figure>
         ))}
+        
+        {/* 리뷰 섹션 - 상품 이미지 바로 아래에만 표시 */}
+        <div className="mt-16 max-w-[900px] mx-auto">
+          <div className="bg-white/90 backdrop-blur-sm rounded-lg p-6 shadow-lg">
+            {/* 리뷰 헤더 */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold mb-2">리뷰</h2>
+              {reviewStats.totalReviews > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span
+                        key={star}
+                        className={`text-lg ${
+                          star <= Math.round(reviewStats.averageRating) 
+                            ? "text-yellow-400" 
+                            : "text-gray-300"
+                        }`}
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-sm text-gray-600">
+                    {reviewStats.averageRating.toFixed(1)} ({reviewStats.totalReviews}개 리뷰)
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* 리뷰 목록 - 한줄에 리뷰 하나씩 */}
+            {reviews.length > 0 ? (
+              <div className="space-y-6">
+                {reviews.slice(0, 5).map((review) => (
+                  <div key={review.id} className="border-b border-gray-200 last:border-b-0 pb-6 last:pb-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* 왼쪽: 텍스트 정보 */}
+                      <div className="space-y-3">
+                        {/* 리뷰 헤더 */}
+                        <div className="space-y-2">
+                          {/* 별점과 작성자 정보 */}
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <span
+                                  key={star}
+                                  className={`text-lg ${
+                                    star <= review.rating ? "text-yellow-400" : "text-gray-300"
+                                  }`}
+                                >
+                                  ★
+                                </span>
+                              ))}
+                            </div>
+                            <span className="text-sm text-gray-600">
+                              {review.userName || "익명"} · {new Date(review.createdAt).toLocaleDateString('ko-KR')}
+                            </span>
+                          </div>
+                          
+                          {/* 구매 정보 */}
+                          <div className="flex items-center gap-2 text-xs flex-wrap">
+                            {/* 다른 상품의 리뷰인 경우 상품명 표시 */}
+                            {review.capId !== cap?.id && (
+                              <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                                상품: {review.capName}
+                              </span>
+                            )}
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                              구매 사이즈: {review.selectedSize}
+                            </span>
+                            <span className="text-gray-500">
+                              주문번호: {review.orderId}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 리뷰 내용 */}
+                        <p className="text-gray-800 leading-relaxed">{review.content}</p>
+                      </div>
+
+                      {/* 오른쪽: 이미지 */}
+                      <div className="flex justify-center items-center">
+                        {review.imageUrls && review.imageUrls.length > 0 ? (
+                          <div className="grid gap-2 w-full max-w-xs">
+                            {review.imageUrls.length === 1 ? (
+                              // 이미지 1개일 때 크게 표시
+                              <img
+                                src={review.imageUrls[0]}
+                                alt="리뷰 이미지"
+                                className="w-full h-48 object-cover rounded-lg border shadow-md cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setExpandedImage(review.imageUrls[0])}
+                              />
+                            ) : review.imageUrls.length === 2 ? (
+                              // 이미지 2개일 때 1x2 배치
+                              <>
+                                {review.imageUrls.map((imageUrl, index) => (
+                                  <img
+                                    key={index}
+                                    src={imageUrl}
+                                    alt={`리뷰 이미지 ${index + 1}`}
+                                    className="w-full h-24 object-cover rounded-lg border shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => setExpandedImage(imageUrl)}
+                                  />
+                                ))}
+                              </>
+                            ) : (
+                              // 이미지 3개 이상일 때 2x2 그리드
+                              <div className="grid grid-cols-2 gap-2">
+                                {review.imageUrls.slice(0, 4).map((imageUrl, index) => (
+                                  <div key={index} className="relative">
+                                    <img
+                                      src={imageUrl}
+                                      alt={`리뷰 이미지 ${index + 1}`}
+                                      className="w-full h-20 object-cover rounded-lg border shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                                      onClick={() => setExpandedImage(imageUrl)}
+                                    />
+                                    {/* 4개 이상일 때 마지막 이미지에 더보기 표시 */}
+                                    {index === 3 && review.imageUrls.length > 4 && (
+                                      <div 
+                                        className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center cursor-pointer hover:bg-opacity-60 transition-colors"
+                                        onClick={() => setExpandedImage(imageUrl)}
+                                      >
+                                        <span className="text-white text-xs font-medium">
+                                          +{review.imageUrls.length - 4}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          // 이미지가 없을 때 빈 공간
+                          <div className="w-full max-w-xs h-32 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <span className="text-gray-400 text-sm">이미지 없음</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* 더 보기 버튼 */}
+                {reviews.length > 5 && (
+                  <div className="text-center mt-4">
+                    <button 
+                      onClick={() => {/* 전체 리뷰 페이지로 이동 */}}
+                      className="text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      리뷰 {reviews.length}개 모두 보기 →
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-8">
+                아직 리뷰가 없습니다. 첫 번째 리뷰를 작성해보세요!
+              </p>
+            )}
+          </div>
+        </div>
       </section>
 
       {/* 오른쪽: 상품 정보 – 배경 제거 + 더 오른쪽으로 밀기 */}
@@ -390,16 +607,20 @@ export default function CapDetailPage() {
 
           <button
             className="w-full py-4 bg-white border border-black rounded font-extrabold tracking-wide hover:bg-gray-100 transition-colors"
-            onClick={() =>
-              cap &&
-              size &&
+            onClick={() => {
+              if (!cap || !size || currentSizeStock === 0) return;
+              if (!user) {
+                // 로그인 필요시 바로 로그인으로 이동 (원래 페이지로 돌아오기 위한 리다이렉트 쿼리 포함)
+                navigate(`/login?redirect=/cap/${cap.id}`);
+                return;
+              }
               navigate("/buy", {
                 state: {
                   mode: "buy-now",
                   item: { capId: cap.id, capName: cap.name, price: cap.price, quantity, size },
                 },
-              })
-            }
+              });
+            }}
             disabled={!size || currentSizeStock === 0}
           >
             BUY IT !
@@ -407,6 +628,13 @@ export default function CapDetailPage() {
         </div>
       </aside>
       </div>
+
+      {/* 라이트박스 */}
+      <Lightbox
+        imageSrc={expandedImage || ""}
+        isOpen={!!expandedImage}
+        onClose={() => setExpandedImage(null)}
+      />
     </div>
   );
 }

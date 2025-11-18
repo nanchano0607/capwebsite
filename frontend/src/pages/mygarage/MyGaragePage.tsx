@@ -1,17 +1,20 @@
 import { useAuth } from "../../auth/useAuth";
-import { clearAccessToken } from "../../lib/token";
 import { useNavigate } from "react-router-dom";
 
 const SERVER = "http://localhost:8080";
 
 export default function AccountPage() {
-  const { setUser} = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    clearAccessToken(); // 토큰 삭제
-    setUser(null);      // user 상태 즉시 null로
-    navigate("/login"); // 로그인 페이지로 이동
+    try {
+      await logout?.();
+    } catch (e) {
+      console.warn("Logout failed:", e);
+    } finally {
+      navigate("/login");
+    }
   };
 
   return (
@@ -20,13 +23,12 @@ export default function AccountPage() {
       <div
         className="absolute inset-0 w-full h-full bg-cover bg-center"
         style={{
-          backgroundImage: `url('${SERVER}/images/accountBackground.png')`,
+          backgroundImage: `url('${SERVER}/images/emptyload.png')`,
           zIndex: 0,
         }}
       />
 
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-center" style={{ zIndex: 1, paddingTop: "10vh" }}>
-        {/* 가장 바깥 테두리 (#000) */}
         <div
           className="relative bg-[#01132c] ml-6"
           style={{
@@ -37,7 +39,8 @@ export default function AccountPage() {
               100% calc(100% - 20px), calc(100% - 20px) calc(100% - 20px), calc(100% - 20px) 100%,
               20px 100%, 20px calc(100% - 20px), 0% calc(100% - 20px)
             )`,
-            padding: '20px'
+            padding: '20px',
+            width: '80vw'
           }}
         >
           {/* 중간 테두리 (#1a5f7a) */}
@@ -64,7 +67,7 @@ export default function AccountPage() {
             
             {/* 가장 안쪽 컨텐츠 (#F5DEB3) */}
             <div 
-              className="w-full px-26 py-16 bg-[#f2d4a7]"
+              className="w-full px-26 py-10 bg-[#f2d4a7]"
               style={{
                 imageRendering: 'pixelated',
                 clipPath: `polygon(
@@ -72,7 +75,8 @@ export default function AccountPage() {
                   calc(100% - 16px) 0%, calc(100% - 16px) 16px, 100% 16px,
                   100% calc(100% - 16px), calc(100% - 16px) calc(100% - 16px), calc(100% - 16px) 100%,
                   16px 100%, 16px calc(100% - 16px), 0% calc(100% - 16px)
-                )`
+                )`,
+                height: '52vh'
               }}
             >
         {/* 6가지 기능 그리드 */}
@@ -104,7 +108,10 @@ export default function AccountPage() {
           </div>
 
           {/* Coupon & mileage */}
-          <div className="bg-transparent p-6 rounded-lg cursor-pointer hover:bg-white/10 transition-colors">
+          <div 
+            onClick={() => navigate("/points")}
+            className="bg-transparent p-6 rounded-lg cursor-pointer hover:bg-white/10 transition-colors"
+          >
             <h2 className="text-2xl font-bold mb-2" style={{ fontFamily: "'Bangers', cursive" }}>Coupon & mileage</h2>
             <p className="text-sm text-gray-700">보유중인 쿠폰과 적립금을 확인합니다.</p>
           </div>

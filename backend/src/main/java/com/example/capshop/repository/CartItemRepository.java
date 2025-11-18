@@ -17,7 +17,9 @@ public interface CartItemRepository extends JpaRepository<CartItem, Long>{
     Optional<CartItem> findByUserAndCap(User user, Cap cap);
     List<CartItem> findAllByUserAndCap(User user, Cap cap);  // 리스트 반환용 메서드 추가
     Optional<CartItem> findByUserAndCapAndSize(User user, Cap cap, String size);
-    
+    @Modifying
+    @Query("delete from CartItem ci where ci.user = :user")
+    void deleteByUser(@Param("user") User user);
     @Modifying
     @Query("delete from CartItem ci where ci.cap.id = :capId")
     void deleteByCapId(@Param("capId") Long capId);

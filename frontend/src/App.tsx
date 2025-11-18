@@ -27,7 +27,9 @@ import AddressPage from "./pages/mygarage/AddressPage";
 import SuccessPage from "./pages/SuccessPage";
 import FailPage from "./pages/FailPage";
 import OrderPage from "./pages/mygarage/OrderPage";
+import PointsPage from "./pages/mygarage/PointsPage";
 import AdminPage from "./pages/AdminPage";
+import ReviewWritePage from "./pages/ReviewWritePage";
 
 export default function App() {
   return (
@@ -95,6 +97,14 @@ export default function App() {
               }
             />
             <Route
+              path="/points"
+              element={
+                <ProtectedRoute>
+                  <PointsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/admin"
               element={
                 <ProtectedRoute>
@@ -105,8 +115,23 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/login/success" element={<LoginPage success />} />
             <Route path="/signup" element={<SignUp />} />
-            <Route path="/buy" element={<BuyPage />} /> {/* 원하는 위치에 추가 */}
+            <Route
+              path="/buy"
+              element={
+                <ProtectedRoute>
+                  <BuyPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/payment" element={<PaymentPage />} />
+            <Route 
+              path="/review/write"
+              element={
+                <ProtectedRoute>
+                  <ReviewWritePage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/success" element={<SuccessPage />} /> {/* 결제 성공 페이지 */}
             <Route path="/fail" element={<FailPage />} /> {/* 결제 실패 페이지 */}
             <Route path="*" element={<Navigate to="/" replace />} />

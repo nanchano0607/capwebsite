@@ -100,7 +100,7 @@ export default function RootLayout() {
                 {/* 하위 메뉴가 있으면 클릭 불가능한 span, 없으면 NavLink */}
                 {Array.isArray((item as any).children) && (item as any).children.length > 0 ? (
                   <span
-                    className="transition-all duration-200 text-[#fff] hover:text-yellow-200 cursor-default"
+                    className="transition-all duration-200 text-yellow-400 hover:text-yellow-700 cursor-default"
                     style={{
                       fontFamily: "'Bangers', cursive",
                       letterSpacing: "2px",
@@ -117,8 +117,8 @@ export default function RootLayout() {
                       [
                         "transition-all duration-200",
                         isActive
-                          ? "text-yellow-300 drop-shadow-[0_0_6px_#fff]"
-                          : "text-[#fff] hover:text-yellow-200",
+                          ? "text-yellow-400 drop-shadow-[0_0_6px_#fff]"
+                          : "text-yellow-400 hover:text-yellow-700",
                       ].join(" ")
                     }
                     style={{
@@ -153,7 +153,7 @@ export default function RootLayout() {
                           <Link
                             key={child.to}
                             to={child.to}
-                            className="block px-4 py-2 text-white hover:text-yellow-300 whitespace-nowrap"
+                            className="block px-4 py-2 text-yellow-400 hover:text-yellow-700 whitespace-nowrap"
                             style={{
                               fontFamily: "'Bangers', cursive",
                               letterSpacing: "1px",

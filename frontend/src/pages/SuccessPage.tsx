@@ -1,63 +1,73 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/axios';
 
 export default function SuccessPage() {
   const [searchParams] = useSearchParams();
+  const qp = useMemo(() => searchParams.toString(), [searchParams]); // ✅ deps용 고정 문자열
   const navigate = useNavigate();
+
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [orderIdResult, setOrderIdResult] = useState<number | null>(null);
-  const hasConfirmed = useRef(false); // 중복 요청 방지
 
+  const hasConfirmed = useRef(false);     // 결제 승인 중복 방지
+  
+
+  // 1) 결제 승인
   useEffect(() => {
-    async function confirmPayment() {
-      // 이미 처리했으면 스킵
-      if (hasConfirmed.current) return;
-      hasConfirmed.current = true;
+    if (hasConfirmed.current) return;
+    hasConfirmed.current = true;
 
-      const paymentKey = searchParams.get('paymentKey');
-      const orderId = searchParams.get('orderId');
-      const amount = searchParams.get('amount');
+    const sp = new URLSearchParams(qp);
+    const paymentKey = sp.get('paymentKey');
+    const orderId = sp.get('orderId');
+    let amount = sp.get('amount');
 
-      if (!paymentKey || !orderId || !amount) {
-        setStatus('error');
-        setMessage('결제 정보가 누락되었습니다.');
-        return;
-      }
+    if (!paymentKey || !orderId || !amount) {
+      setStatus('error');
+      setMessage('결제 정보가 누락되었습니다.');
+      return;
+    }
 
-      console.log('결제 승인 요청 데이터:', { paymentKey, orderId, amount: Number(amount) });
-
+    (async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        console.log('토큰 존재 여부:', !!token);
-        
+        // 결제 추적/할인 정보 반영
+        const paymentInfoStr = sessionStorage.getItem(`payment:${orderId}`);
+        const discountInfoStr = sessionStorage.getItem(`discount:${orderId}`);
+        if (paymentInfoStr) {
+          const paymentInfo = JSON.parse(paymentInfoStr);
+          amount = String(paymentInfo.finalAmount);
+        }
+
+        const requestData: any = { paymentKey, orderId, amount };
+        if (discountInfoStr) requestData.discountInfo = JSON.parse(discountInfoStr);
+
         const res = await api.post(
           `${import.meta.env.DEV ? 'http://localhost:8080' : ''}/api/orders/confirm`,
-          {
-            paymentKey,
-            orderId,
-            amount: amount  // 문자열 그대로 전송 (서버에서 파싱)
-          }
+          requestData
         );
 
-        console.log('결제 승인 응답:', res.data);
         setOrderIdResult(res.data.orderId || res.data.id);
         setStatus('success');
         setMessage('결제가 완료되었습니다!');
-        
-        // CheckOut sessionStorage 정리
+
+        // 세션 정리
+        sessionStorage.removeItem(`payment:${orderId}`);
+        sessionStorage.removeItem(`discount:${orderId}`);
         sessionStorage.removeItem(`checkout:${orderId}:summary`);
       } catch (err: any) {
-        console.error('결제 승인 오류:', err);
-        console.error('응답 데이터:', err?.response?.data);
+        console.error('결제 승인 오류:', err?.response?.data || err);
         setStatus('error');
-        setMessage(err?.response?.data?.error || err?.response?.data?.message || '결제 승인 중 오류가 발생했습니다.');
+        setMessage(
+          err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          '결제 승인 중 오류가 발생했습니다.'
+        );
       }
-    }
+    })();
+  }, [qp]);
 
-    confirmPayment();
-  }, [searchParams]);
 
   if (status === 'loading') {
     return (

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../auth/useAuth";
 import { useNavigate } from "react-router-dom";
-import { clearAccessToken } from "../../lib/token";
 
 const SERVER = "http://localhost:8080";
 
@@ -19,7 +18,7 @@ type UserInfo = {
 };
 
 export default function License() {
-  const { user, setUser } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,10 +160,13 @@ export default function License() {
       if (response.ok) {
         showMessage("success", data.message || "계정이 탈퇴되었습니다.");
         
-        // 자동 로그아웃 처리
-        clearAccessToken(); // 토큰 삭제
-        setUser(null);      // user 상태 즉시 null로
-        
+        // 자동 로그아웃 처리: 서버 로그아웃 호출 후 로그인 페이지로 이동
+        try {
+          await logout?.();
+        } catch (e) {
+          console.warn("Logout after delete failed:", e);
+        }
+
         // 2초 후 로그인 페이지로 이동
         setTimeout(() => {
           navigate("/login");
@@ -188,20 +190,67 @@ export default function License() {
       <div
         className="fixed inset-0 w-full h-full bg-cover bg-center"
         style={{
-          backgroundImage: `url('${SERVER}/images/accountBackground.png')`,
+          backgroundImage: `url('${SERVER}/images/emptyload.png')`,
           zIndex: 0,
         }}
       />
 
       {/* 📦 메인 컨텐츠 컨테이너: 최대 너비 2xl(42rem = 672px), 중앙 정렬, 화면 중앙 배치 */}
       {/* h-full = 전체 높이, flex items-center = 세로 중앙 정렬 */}
-      <div className="relative h-full flex items-center justify-center" style={{ zIndex: 1 }}>
-        <div className="max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* 📝 제목: 텍스트 크기 3xl(30px), mt-2.5 = 상단 여백 10px */}
-          <h1 className="text-3xl font-bold text-white mb-8 mt-8" style={{ fontFamily: "'Bangers', cursive" }}>
-            License Information
-          </h1>
+      <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-center" style={{ zIndex: 1, paddingTop: "10vh" }}>
+        {/* 가장 바깥 테두리 (#000) */}
+        <div
+          className="relative bg-[#01132c] ml-6"
+          style={{
+            imageRendering: 'pixelated',
+            clipPath: `polygon(
+              0% 20px, 20px 20px, 20px 0%,
+              calc(100% - 20px) 0%, calc(100% - 20px) 20px, 100% 20px,
+              100% calc(100% - 20px), calc(100% - 20px) calc(100% - 20px), calc(100% - 20px) 100%,
+              20px 100%, 20px calc(100% - 20px), 0% calc(100% - 20px)
+            )`,
+            padding: '20px',
+            width: '80vw'
 
+          }}
+        >
+          {/* 중간 테두리 (#1a5f7a) */}
+          <div
+            className="relative bg-[#03526a]"
+            style={{
+              imageRendering: 'pixelated',
+              clipPath: `polygon(
+                0% 18px, 18px 18px, 18px 0%,
+                calc(100% - 18px) 0%, calc(100% - 18px) 18px, 100% 18px,
+                100% calc(100% - 18px), calc(100% - 18px) calc(100% - 18px), calc(100% - 18px) 100%,
+                18px 100%, 18px calc(100% - 18px), 0% calc(100% - 18px)
+              )`,
+              padding: '48px'
+            }}
+          >
+            {/* 왼쪽 위 글씨 */}
+            <div 
+              className="absolute top-2 left-12 text-white font-bold text-3xl"
+              style={{ fontFamily: "'Bangers', cursive", imageRendering: 'pixelated', zIndex: 10 }}
+            >
+              License
+            </div>
+            
+            {/* 가장 안쪽 컨텐츠 (#F5DEB3) */}
+            <div 
+              className="w-full px-8 py-2 bg-[#f2d4a7] scrollbar-hide overflow-y-auto"
+              style={{
+                imageRendering: 'pixelated',
+                clipPath: `polygon(
+                  0% 16px, 16px 16px, 16px 0%,
+                  calc(100% - 16px) 0%, calc(100% - 16px) 16px, 100% 16px,
+                  100% calc(100% - 16px), calc(100% - 16px) calc(100% - 16px), calc(100% - 16px) 100%,
+                  16px 100%, 16px calc(100% - 16px), 0% calc(100% - 16px)
+                )`,
+                height: '52vh'
+              }}
+            >
+        <div className="max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* 메시지 알림 */}
           {message && (
             <div
@@ -385,6 +434,9 @@ export default function License() {
             >
               Back to My Garage
             </button>
+          </div>
+          </div>
+            </div>
           </div>
         </div>
       </div>

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import OrderManagement from "./admin/OrderManagement";
 import ProductManagement from "./admin/ProductManagement";
 import UserManagement from "./admin/UserManagement";
-import Statistics from "./admin/Statistics";
+import Coupon from "./admin/Coupon";
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -13,7 +13,7 @@ export default function AdminPage() {
   const [ordersOpen, setOrdersOpen] = useState<boolean>(false);
   const [productsOpen, setProductsOpen] = useState<boolean>(false);
   const [usersOpen, setUsersOpen] = useState<boolean>(false);
-  const [statisticsOpen, setStatisticsOpen] = useState<boolean>(false);
+  const [couponOpen, setCouponOpen] = useState<boolean>(false);
 
   useEffect(() => {
     // 관리자가 아니면 홈으로 리다이렉트
@@ -28,7 +28,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="w-[900px] mx-auto py-8">
+    <div className="min-h-screen bg-gray-400">
+      <div className="w-[900px] mx-auto py-32">
       <h1 className="text-2xl font-bold mb-6">관리자 페이지</h1>
 
       {/* 주문 관리 */}
@@ -51,11 +52,12 @@ export default function AdminPage() {
           onToggle={() => setUsersOpen(v => !v)} 
         />
         
-        {/* 통계 */}
-        <Statistics 
-          isOpen={statisticsOpen} 
-          onToggle={() => setStatisticsOpen(v => !v)} 
+        {/* 쿠폰 관리 */}
+        <Coupon 
+          isOpen={couponOpen} 
+          onToggle={() => setCouponOpen(v => !v)} 
         />
+      </div>
       </div>
     </div>
   );

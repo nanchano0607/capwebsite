@@ -17,12 +17,23 @@ public class OrderResponse {
     private String address;
     private String phone;
     private Long totalPrice;
+    
+    // 할인 정보 추가
+    private Long originalPrice;     // 할인 전 원가
+    private Long couponDiscount;    // 쿠폰 할인액
+    private Long pointsDiscount;    // 포인트 할인액
+    private Long totalDiscount;     // 총 할인액
+    private Long finalPrice;        // 최종 결제 금액
+    
     private LocalDateTime orderDate;
     private String trackingNumber;
     private String returnTrackingNumber;
     private String returnReason;
     private String returnMethod;
     private Long returnShippingFee;
+    private boolean confirmed;           // 구매확정 여부
+    private LocalDateTime confirmedAt;   // 구매확정 시간
+    private LocalDateTime deliveredAt;   // 배송 완료 시간
     private List<OrderItemDto> orderItems;
 
     public OrderResponse(Order order) {
@@ -33,12 +44,23 @@ public class OrderResponse {
         this.address = order.getAddress();
         this.phone = order.getPhone();
         this.totalPrice = order.getTotal_price();
+        
+        // 할인 정보 매핑
+        this.originalPrice = order.getOriginal_price();
+        this.couponDiscount = order.getCoupon_discount();
+        this.pointsDiscount = order.getPoints_discount();
+        this.totalDiscount = order.getTotal_discount();
+        this.finalPrice = order.getFinal_price();
+        
         this.orderDate = order.getOrderDate();
         this.trackingNumber = order.getTrackingNumber();
         this.returnTrackingNumber = order.getReturnTrackingNumber();
         this.returnReason = order.getReturnReason();
         this.returnMethod = order.getReturnMethod();
         this.returnShippingFee = order.getReturnShippingFee();
+        this.confirmed = order.isConfirmed();
+        this.confirmedAt = order.getConfirmedAt();
+        this.deliveredAt = order.getDeliveredAt();
         this.orderItems = order.getOrderItems().stream()
                 .map(OrderItemDto::new)
                 .collect(Collectors.toList());

@@ -171,20 +171,66 @@ export default function AddressPage() {
       <div
         className="fixed inset-0 w-full h-full bg-cover bg-center"
         style={{
-          backgroundImage: `url('${SERVER}/images/accountBackground.png')`,
+          backgroundImage: `url('${SERVER}/images/emptyload.png')`,
           zIndex: 0,
         }}
       />
 
       {/* 📦 메인 컨텐츠 컨테이너: 최대 너비 2xl(42rem = 672px), 중앙 정렬, 화면 중앙 배치 */}
       {/* h-full = 전체 높이, flex items-center = 세로 중앙 정렬 */}
-      <div className="relative h-full flex items-center justify-center" style={{ zIndex: 1 }}>
-        <div className="max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* 📝 제목: 텍스트 크기 3xl(30px), mt-2.5 = 상단 여백 10px */}
-        <h1 className="text-3xl font-bold text-white mb-8 mt-12" style={{ fontFamily: "'Bangers', cursive" }}>
-          Address Management
-        </h1>
-
+      <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-center" style={{ zIndex: 1, paddingTop: "10vh" }}>
+        
+        <div
+          className="relative bg-[#01132c] ml-6"
+          style={{
+            imageRendering: 'pixelated',
+            clipPath: `polygon(
+              0% 20px, 20px 20px, 20px 0%,
+              calc(100% - 20px) 0%, calc(100% - 20px) 20px, 100% 20px,
+              100% calc(100% - 20px), calc(100% - 20px) calc(100% - 20px), calc(100% - 20px) 100%,
+              20px 100%, 20px calc(100% - 20px), 0% calc(100% - 20px)
+            )`,
+             padding: '20px',
+            width: '80vw'
+          }}
+        >
+          {/* 중간 테두리 (#1a5f7a) */}
+          <div
+            className="relative bg-[#03526a]"
+            style={{
+              imageRendering: 'pixelated',
+              clipPath: `polygon(
+                0% 18px, 18px 18px, 18px 0%,
+                calc(100% - 18px) 0%, calc(100% - 18px) 18px, 100% 18px,
+                100% calc(100% - 18px), calc(100% - 18px) calc(100% - 18px), calc(100% - 18px) 100%,
+                18px 100%, 18px calc(100% - 18px), 0% calc(100% - 18px)
+              )`,
+              padding: '48px'
+            }}
+          >
+            {/* 왼쪽 위 글씨 */}
+            <div 
+              className="absolute top-2 left-12 text-white font-bold text-3xl"
+              style={{ fontFamily: "'Bangers', cursive", imageRendering: 'pixelated', zIndex: 10 }}
+            >
+              Address
+            </div>
+            
+            {/* 가장 안쪽 컨텐츠 (#F5DEB3) */}
+            <div 
+              className="w-full px-4 bg-[#f2d4a7] scrollbar-hide overflow-y-auto"
+              style={{
+                imageRendering: 'pixelated',
+                clipPath: `polygon(
+                  0% 16px, 16px 16px, 16px 0%,
+                  calc(100% - 16px) 0%, calc(100% - 16px) 16px, 100% 16px,
+                  100% calc(100% - 16px), calc(100% - 16px) calc(100% - 16px), calc(100% - 16px) 100%,
+                  16px 100%, 16px calc(100% - 16px), 0% calc(100% - 16px)
+                )`,
+                height: '52vh'
+              }}
+            >
+        <div className="max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {/* 메시지 알림 */}
         {/* 📦 알림 박스: mb-4 = 하단 여백 16px, p-4 = 내부 패딩 16px */}
         {message && (
@@ -199,7 +245,7 @@ export default function AddressPage() {
 
         {/* 주소 추가 폼 */}
         {/* 📦 폼 컨테이너: 투명 배경(bg-transparent), 내부 패딩 24px(p-6), 하단 여백 24px(mb-6) */}
-        <div className="bg-transparent p-6 rounded-lg mb-6">
+        <div className="bg-transparent p-2 rounded-lg mb-2">
           {/* 📝 폼 제목: 텍스트 크기 xl(20px), 하단 여백 16px */}
           <h2 className="text-xl font-bold mb-4 text-black">New Address</h2>
           {/* 📦 입력 필드 그룹: flex로 가로 배치, gap-2 = 요소 간 간격 8px, mb-3 = 하단 여백 12px */}
@@ -275,6 +321,9 @@ export default function AddressPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+            </div>
           </div>
         </div>
         </div>

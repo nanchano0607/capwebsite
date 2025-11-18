@@ -84,7 +84,7 @@ export default function LoginPage({ success }: { success?: boolean }) {
       <div
         className="absolute inset-0 w-full h-screen bg-cover bg-center"
         style={{
-          backgroundImage: `url('${SERVER}/images/login.png')`,
+          backgroundImage: `url('${SERVER}/images/emptyload.png')`,
           zIndex: 0,
         }}
       />

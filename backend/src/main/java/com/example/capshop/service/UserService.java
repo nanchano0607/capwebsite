@@ -9,16 +9,25 @@ import org.springframework.stereotype.Service;
 import com.example.capshop.domain.AuthProvider;
 import com.example.capshop.domain.User;
 import com.example.capshop.repository.UserRepository;
+
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @Service
 public class UserService {
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder; // 주입 추가
-    
+    private final PasswordEncoder passwordEncoder;
+    private final UserCouponService userCouponService;
+
     public User save(User user){
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        System.out.println("새 사용자 저장: id=" + savedUser.getId() + ", email=" + savedUser.getEmail());
+        // 회원가입 시 웰컴 쿠폰 자동 지급
+        System.out.println("웰컴 쿠폰 지급 시도: userId=" + savedUser.getId());
+        userCouponService.issueWelcomeCouponToNewUser(savedUser.getId());
+        System.out.println("웰컴 쿠폰 지급 완료: userId=" + savedUser.getId());
+        return savedUser;
     }
     public User findById(Long id) {
         return userRepository.findById(id).orElse(null);
@@ -43,39 +52,76 @@ public class UserService {
         return user.isAdmin();
     }
 
-    public User findOrCreateUser(String email, String name, String provider, String providerUserId) {
-    return userRepository.findByEmail(email)
-            .map(user -> {
-                // 이미 있으면 이름/공급자 정보 업데이트
-                user.setName(name);
-                user.setOauthProvider(AuthProvider.valueOf(provider.toUpperCase()));
-                user.setProviderUserId(providerUserId);
-                return user;
-            })
-            .orElseGet(() -> userRepository.save(User.builder()
-                    .email(email)
-                    .name(name)
-                    .oauthProvider(AuthProvider.valueOf(provider.toUpperCase())) // 변환
-                    .providerUserId(providerUserId)
-                    .build()));
+    // 사용자 상태 토글 (활성화/비활성화)
+    public boolean toggleUserStatus(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        user.setDeleted(!user.isDeleted());
+        userRepository.save(user);
+        return user.isDeleted();
+    }
 
-}
+   
+    @Transactional
+    public User findOrCreateUser(String email, String name, String provider, String providerUserId) {
+        AuthProvider authProvider = AuthProvider.valueOf(provider.toUpperCase());
+        System.out.println("[소셜 로그인] findOrCreateUser 호출: email=" + email + ", provider=" + provider + ", providerUserId=" + providerUserId);
+        return userRepository.findByEmail(email)
+                .map(user -> {
+                    System.out.println("[소셜 로그인] 기존 사용자 발견: id=" + user.getId() + ", email=" + user.getEmail());
+                    // 이미 존재하는 유저 → 정보만 업데이트
+                    user.setName(name);
+                    user.setOauthProvider(authProvider);
+                    user.setProviderUserId(providerUserId);
+                    return user; // 영속 상태라 save() 안 해도 flush 시점에 반영됨
+                })
+                .orElseGet(() -> {
+                    // ✅ 여기서 "새로 가입" → 웰컴 쿠폰 지급 대상으로 삼기
+                    System.out.println("[소셜 로그인] 신규 사용자 생성: email=" + email);
+                    User newUser = User.builder()
+                            .email(email)
+                            .name(name)
+                            .oauthProvider(authProvider)
+                            .providerUserId(providerUserId)
+                            .build();
+
+                    User savedUser = userRepository.save(newUser);
+
+                    // ✅ 소셜 로그인 가입자도 웰컴 쿠폰 지급
+                    try {
+                        System.out.println("[소셜 회원가입] 웰컴 쿠폰 지급 시도: userId=" + savedUser.getId());
+                        userCouponService.issueWelcomeCouponToNewUser(savedUser.getId());
+                        System.out.println("[소셜 회원가입] 웰컴 쿠폰 지급 완료: userId=" + savedUser.getId());
+                    } catch (Exception e) {
+                        // 이미 쿠폰 있음 / 장애 등은 로그인 막지 않게만 처리
+                        System.err.println("[소셜 회원가입] 웰컴 쿠폰 지급 실패: userId=" + savedUser.getId()
+                                + ", reason=" + e.getMessage());
+                    }
+
+                    return savedUser;
+                });
+    }
 
     // 로컬 회원가입
     public User createLocalUser(String email, String password, String name) {
         if (userRepository.findByEmail(email).isPresent()) {
             throw new IllegalArgumentException("이미 존재하는 이메일입니다.");
         }
-        
         String encodedPassword = passwordEncoder.encode(password);
-        
-        return userRepository.save(User.builder()
+        User newUser = User.builder()
                 .email(email)
                 .password(encodedPassword)
                 .name(name)
                 .oauthProvider(AuthProvider.LOCAL)
                 .providerUserId(null)
-                .build());
+                .build();
+        User savedUser = userRepository.save(newUser);
+        System.out.println("[회원가입] 새 사용자 저장: id=" + savedUser.getId() + ", email=" + savedUser.getEmail());
+        // 회원가입 시 웰컴 쿠폰 자동 지급
+        System.out.println("[회원가입] 웰컴 쿠폰 지급 시도: userId=" + savedUser.getId());
+        userCouponService.issueWelcomeCouponToNewUser(savedUser.getId());
+        System.out.println("[회원가입] 웰컴 쿠폰 지급 완료: userId=" + savedUser.getId());
+        return savedUser;
     }
 
     // 로컬 로그인 인증

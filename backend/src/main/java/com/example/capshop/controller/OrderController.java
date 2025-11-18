@@ -31,11 +31,11 @@ public class OrderController {
     @PostMapping("/confirm")
     public ResponseEntity<Map<String, Object>> confirmPayment(
             @AuthenticationPrincipal User user,
-            @RequestBody Map<String, String> request) {
+            @RequestBody Map<String, Object> request) {
         try {
-            String paymentKey = request.get("paymentKey");
-            String orderId = request.get("orderId");
-            String amountStr = request.get("amount");
+            String paymentKey = (String) request.get("paymentKey");
+            String orderId = (String) request.get("orderId");
+            String amountStr = (String) request.get("amount");
             
             if (paymentKey == null || orderId == null || amountStr == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "필수 파라미터가 누락되었습니다."));
@@ -43,8 +43,12 @@ public class OrderController {
             
             Long amount = Long.parseLong(amountStr);
             
-            // 서버에서 토스에 최종 승인 요청 + Order 생성
-            Order order = orderService.confirmPaymentAndCreateOrder(user, paymentKey, orderId, amount);
+            // 할인 정보 추출 (프론트에서 계산된 값 그대로 사용)
+            @SuppressWarnings("unchecked")
+            Map<String, Object> discountInfo = (Map<String, Object>) request.get("discountInfo");
+            
+            // 서버에서 토스에 최종 승인 요청 + Order 생성 (할인 정보 포함)
+            Order order = orderService.confirmPaymentAndCreateOrderWithDiscount(user, paymentKey, orderId, amount, discountInfo);
             
             return ResponseEntity.ok(Map.of(
                 "orderId", order.getId(),
@@ -135,6 +139,25 @@ public class OrderController {
         } catch (RuntimeException e) {
             System.out.println("=== 반품 요청 실패 (Runtime): " + e.getMessage());
             e.printStackTrace();
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    // 구매확정 (사용자용)
+    @PostMapping("/{orderId}/confirm")
+    public ResponseEntity<Map<String, String>> confirmPurchase(
+            @PathVariable("orderId") Long orderId,
+            @AuthenticationPrincipal User user) {
+        try {
+            if (user == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "인증이 필요합니다."));
+            }
+            
+            orderService.confirmPurchase(orderId, user.getId());
+            return ResponseEntity.ok(Map.of("message", "구매가 확정되었습니다."));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
     }
