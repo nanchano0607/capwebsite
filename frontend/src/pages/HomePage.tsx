@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from "react";
+import { isMobileDevice } from "../utils/isMobile"; // 네가 따로 만든 파일
 
 const SERVER = "http://localhost:8080";
 
@@ -8,24 +9,35 @@ function isVideo(url: string) {
 }
 
 export default function HomePage() {
-  const [bgUrl, setBgUrl] = useState<string>("");
-  const [videoEnded, setVideoEnded] = useState<boolean>(false);
-  const [videoError, setVideoError] = useState<boolean>(false);
+  const [bgUrl, setBgUrl] = useState("");
+  const [videoEnded, setVideoEnded] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // 비디오 종료 후 보여줄 이미지
+  // 비디오 끝나면/에러나면/모바일에서는 보여줄 기본 이미지
   const fallbackImage = `${SERVER}/images/background.png`;
 
-  // 배경 리소스 URL 가져오기
+  // ✅ 항상 "화면에 실제로 쓸 이미지 URL"을 여기서 결정
+  const backgroundUrl = isVideo(bgUrl) ? fallbackImage : bgUrl || fallbackImage;
+
+  // 모바일 감지 (한 번만)
   useEffect(() => {
-    fetch(`${SERVER}/background`, { method: "GET" })
+    setIsMobile(isMobileDevice());
+  }, []);
+
+  // 배경 리소스 가져오기
+  useEffect(() => {
+    fetch(`${SERVER}/background`)
       .then((res) => res.json())
       .then((data) => setBgUrl(data?.url ?? ""))
       .catch(() => setBgUrl(""));
   }, []);
 
-  // 자동재생 시도 (항상 1회 재생 후 이미지로 전환)
+  // PC에서만 비디오 자동 재생
   useEffect(() => {
+    if (isMobile) return;
     if (!bgUrl || !isVideo(bgUrl)) return;
 
     const el = videoRef.current;
@@ -43,7 +55,7 @@ export default function HomePage() {
       }
     };
     tryPlay();
-  }, [bgUrl]);
+  }, [bgUrl, isMobile]);
 
   const handleVideoEnd = () => setVideoEnded(true);
   const handleVideoError = () => {
@@ -51,10 +63,10 @@ export default function HomePage() {
     setVideoEnded(true);
   };
 
-  // 렌더링 조건
-  const showVideo = !!bgUrl && isVideo(bgUrl) && !videoEnded && !videoError;
+  const showVideo =
+    !isMobile && isVideo(bgUrl) && !videoEnded && !videoError;
 
-  // --- 스크롤 리빌 ---
+  // --- 스크롤 리빌 (네 원래 코드 유지용) ---
   const [, setImageVisible] = useState([false, false, false]);
   const imageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -81,49 +93,47 @@ export default function HomePage() {
   }, []);
 
   return (
-    <>
-      {/* ===== Hero Section ===== */}
-      <section className="bg-[#FFFFF0] w-full relative">
-        {/* 비디오 (항상 1회 재생) */}
-        {showVideo && (
-          <div
-            className={`absolute inset-0 w-full h-screen transition-opacity duration-700 ${
-              videoEnded ? "opacity-0" : "opacity-100"
-            }`}
-            style={{ zIndex: 1 }}
-          >
-            <video
-              ref={videoRef}
-              src={bgUrl}
-              autoPlay
-              loop={false}
-              muted
-              playsInline
-              preload="auto"
-              poster={fallbackImage}
-              onEnded={handleVideoEnd}
-              onError={handleVideoError}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        )}
-
-        {/* 폴백 이미지 (비디오 종료/에러/비디오가 아닌 경우) */}
-        {(!showVideo || videoEnded || videoError) && (
-          <div
-            className={`absolute inset-0 w-full h-screen bg-cover bg-center transition-opacity duration-700 ${
-              videoEnded || videoError || !showVideo ? "opacity-100" : "opacity-0"
-            }`}
-            style={{
-              backgroundImage: `url('${isVideo(bgUrl) ? fallbackImage : (bgUrl || fallbackImage)}')`,
-              zIndex: 0,
-            }}
+    <section className="relative w-full bg-[#FFFFF0]">
+      {/* ✅ PC 전용 비디오 (한 번만 재생) */}
+      {showVideo && (
+        <div
+          className={`absolute inset-0 w-full h-screen transition-opacity duration-700 ${
+            videoEnded ? "opacity-0" : "opacity-100"
+          }`}
+          style={{ zIndex: 1 }}
+        >
+          <video
+            ref={videoRef}
+            src={bgUrl}
+            autoPlay
+            loop={false}
+            muted
+            playsInline
+            preload="auto"
+            poster={fallbackImage}
+            onEnded={handleVideoEnd}
+            onError={handleVideoError}
+            className="w-full h-full object-cover"
           />
-        )}
+        </div>
+      )}
 
-        {/* 레이아웃 높이 확보 */}
-        <div style={{ height: "100vh" }} />
-      </section>
-    </>
+      {/* ✅ 모바일 + 비디오 끝 + 에러 + 비디오 아닌 경우 → 항상 이미지 */}
+    <div
+        className={`absolute inset-0 w-full h-screen transition-opacity duration-700 ${
+          !showVideo || videoEnded || videoError ? "opacity-100" : "opacity-0"
+        }`}
+        style={{
+          backgroundImage: `url('${backgroundUrl}')`,
+          backgroundPosition: isMobile ? "center top" : "center",
+          backgroundRepeat: "no-repeat",
+          backgroundSize: isMobile ? "350% auto" : "cover", // 🔥 핵심!
+          zIndex: 0,
+        }}
+      />
+
+      {/* 높이 확보 */}
+      <div className="h-screen" />
+    </section>
   );
 }

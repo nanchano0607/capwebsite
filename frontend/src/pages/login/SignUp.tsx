@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import axios from "axios";
 
 const API = import.meta.env.DEV ? "http://localhost:8080" : "";
 
@@ -17,6 +16,9 @@ export default function SignUp() {
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [idChecked, setIdChecked] = useState(false);
+  const [idAvailable, setIdAvailable] = useState(false);
+  const [idCheckLoading, setIdCheckLoading] = useState(false);
 
   // 동의 항목 상태
   const [agreements, setAgreements] = useState({
@@ -50,6 +52,11 @@ export default function SignUp() {
   const isRequiredAgreed =
     agreements.TERMS && agreements.PRIVACY && agreements.OVER14;
 
+  const validateEmail = (e: string) => {
+    if (!e) return false;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+  };
+
   // 회원가입 처리
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,21 +81,20 @@ export default function SignUp() {
     }
 
     setIsLoading(true);
-
     try {
-      await axios.post(`${API}/auth/signup`, {
-        email,
-        password,
-        name,
-        agreements, // 동의 정보도 함께 전송
-      });
-
-      alert("회원가입이 완료되었습니다! 로그인해 주세요.");
-      navigate(`/login?redirect=${encodeURIComponent(redirect)}`, {
-        replace: true,
-      });
+        // store current signup data in sessionStorage and navigate to phone verification
+      // backend expects an `email` field, so save the entered email under `email`
+        const draft = {
+            email: email,
+            password,
+            name,
+            agreements,
+          };
+      sessionStorage.setItem("signupDraft", JSON.stringify(draft));
+      // navigate to phone verification step (SignupPhone)
+      navigate(`/complete-signup`);
     } catch (err: any) {
-      setError(err.response?.data?.message || "회원가입에 실패했습니다.");
+      setError("다음 단계로 이동 중 오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
     }
@@ -112,16 +118,84 @@ export default function SignUp() {
           />
         </div>
 
+
         <div>
           <label className="block text-sm font-medium mb-1">이메일</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="your@email.com"
-            required
-          />
+          <div className="flex gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setIdChecked(false);
+                setIdAvailable(false);
+              }}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="example@domain.com"
+              required
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                setError("");
+                const raw = email || "";
+                const candidate = raw.trim().toLowerCase();
+                if (!candidate) {
+                  setError("이메일을 입력하세요.");
+                  return;
+                }
+                if (!validateEmail(candidate)) {
+                  setError("유효한 이메일 주소를 입력하세요.");
+                  return;
+                }
+                setIdCheckLoading(true);
+                try {
+                  const res = await fetch(`${API}/user/id/overlap`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: candidate }),
+                  });
+                  // API may return boolean or an object; handle both
+                  const body = await res.json().catch(() => null);
+                  if (!res.ok) {
+                    // try to extract message
+                    const msg = (body && (body.message || body.error)) || `HTTP ${res.status}`;
+                    throw new Error(msg);
+                  }
+                  let exists = false;
+                  if (typeof body === "boolean") exists = body;
+                  else if (body && typeof body === "object") {
+                    if (typeof body.exists === "boolean") exists = body.exists;
+                    else if (typeof body.value === "boolean") exists = body.value;
+                    else {
+                      // fallback: if response has a truthy length or count, treat as exists
+                      exists = !!(body.count || body.length);
+                    }
+                  }
+                  setIdAvailable(!exists);
+                  setIdChecked(true);
+                  if (exists) setError("이미 사용 중인 이메일입니다.");
+                } catch (err: any) {
+                  setError(err?.message || "이메일 확인 중 오류가 발생했습니다.");
+                } finally {
+                  setIdCheckLoading(false);
+                }
+              }}
+              className="px-3 py-2 bg-gray-800 text-white rounded disabled:opacity-50"
+              disabled={idCheckLoading}
+            >
+              {idCheckLoading ? "확인중..." : "중복확인"}
+            </button>
+          </div>
+          <div className={`text-sm mt-1 ${idAvailable ? 'text-green-600' : 'text-red-600'}`}>
+            {!validateEmail(email) ? (
+              '유효한 이메일 주소를 입력하세요.'
+            ) : idChecked ? (
+              idAvailable ? '사용 가능한 이메일입니다.' : '이미 사용 중인 이메일입니다.'
+            ) : (
+              ''
+            )}
+          </div>
         </div>
 
         <div>
@@ -225,14 +299,16 @@ export default function SignUp() {
           </div>
         </div>
 
-        {error && <div className="text-red-500 text-sm">{error}</div>}
+        {error && !/이메일|유효한 이메일|이미 사용 중인 이메일|이메일을 입력하세요/i.test(error) && (
+          <div className="text-red-500 text-sm">{error}</div>
+        )}
 
         <button
           type="submit"
-          disabled={isLoading || !isRequiredAgreed}
+          disabled={isLoading || !isRequiredAgreed || !idChecked || !idAvailable}
           className="w-full h-11 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
-          {isLoading ? "가입 중..." : "회원가입"}
+          {isLoading ? "넘어가는 중..." : "다음"}
         </button>
       </form>
 

@@ -56,16 +56,15 @@ public class CapController {
                 
                 // 사이즈별 재고 저장
                 capService.updateStockBySize(savedCap.getId(), size, stock);
-                System.out.println("사이즈별 재고 저장: " + size + " = " + stock);
             }
         }
         
-        System.out.println("상품 저장 완료: " + savedCap.getName());
+        // 상품 저장 완료
     }
     @PostMapping("/delete/{id}")
     public void deleteCap(@PathVariable("id") Long id){
         capService.deleteById(id);   
-        System.out.print("삭제완료");
+        // 삭제완료
     }
     @GetMapping("/{id}")
     public Cap capDetail(@PathVariable("id") Long id){
@@ -84,19 +83,19 @@ public class CapController {
     @PostMapping("/setNew/{id}")
     public void setCapAsNew(@PathVariable("id") Long id){
         capService.setIsNew(id, true);
-        System.out.println("상품 " + id + " NEW 설정 완료");
+        // NEW 설정 완료
     }
     
     @PostMapping("/unsetNew/{id}")
     public void unsetCapAsNew(@PathVariable("id") Long id){
         capService.setIsNew(id, false);
-        System.out.println("상품 " + id + " NEW 해제 완료");
+        // NEW 해제 완료
     }
     
     @PostMapping("/updateStock/{id}")
     public void updateStock(@PathVariable("id") Long id, @RequestBody Long stock) {
         capService.updateStock(id, stock);
-        System.out.println("상품 " + id + " 재고 변경: " + stock);
+        // 재고 변경 처리 완료
     }
     
     // 사이즈별 재고 업데이트
@@ -106,7 +105,7 @@ public class CapController {
             @PathVariable("size") String size, 
             @RequestBody Long stock) {
         capService.updateStockBySize(id, size, stock);
-        System.out.println("상품 " + id + " 사이즈 " + size + " 재고 변경: " + stock);
+        // 사이즈별 재고 변경 처리 완료
     }
     
     // 특정 상품의 모든 사이즈별 재고 조회

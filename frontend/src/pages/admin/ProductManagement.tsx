@@ -192,7 +192,7 @@ export default function ProductManagement({
   };
 
   return (
-    <div className="border p-4 rounded md:col-span-2">
+    <div className="border p-4 rounded md:col-span-2 font-sans">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold">상품 관리</h2>

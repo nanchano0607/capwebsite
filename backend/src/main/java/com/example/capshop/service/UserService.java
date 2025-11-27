@@ -22,11 +22,8 @@ public class UserService {
 
     public User save(User user){
         User savedUser = userRepository.save(user);
-        System.out.println("새 사용자 저장: id=" + savedUser.getId() + ", email=" + savedUser.getEmail());
-        // 회원가입 시 웰컴 쿠폰 자동 지급
-        System.out.println("웰컴 쿠폰 지급 시도: userId=" + savedUser.getId());
+        // new user saved; welcome coupon issuance attempted
         userCouponService.issueWelcomeCouponToNewUser(savedUser.getId());
-        System.out.println("웰컴 쿠폰 지급 완료: userId=" + savedUser.getId());
         return savedUser;
     }
     public User findById(Long id) {
@@ -42,6 +39,52 @@ public class UserService {
     public Optional<User> findByEmail(String email) {
         return userRepository.findByEmail(email);
     }
+
+    // 프로바이더 + providerUserId로 연결된 유저 조회 (소셜 연동 확인용)
+    public User findByProviderAndProviderUserId(String provider, String providerUserId) {
+        try {
+            AuthProvider authProvider = AuthProvider.valueOf(provider.toUpperCase());
+            return userRepository.findByOauthProviderAndProviderUserId(authProvider, providerUserId).orElse(null);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    // 소셜 가입 완료 시 실제 User 생성 로직 (추가 필드 포함 가능)
+    @Transactional
+    public User createSocialUser(String email, String name, String provider, String providerUserId, String phone) {
+        AuthProvider authProvider = AuthProvider.valueOf(provider.toUpperCase());
+
+        // 이미 provider+id로 연결된 사용자가 있는지 확인
+        if (userRepository.findByOauthProviderAndProviderUserId(authProvider, providerUserId).isPresent()) {
+            throw new IllegalArgumentException("이미 해당 소셜 계정으로 가입된 사용자입니다.");
+        }
+
+        // 이메일이 이미 존재하면(로컬 계정 등) 분기 처리: 여기서는 에러로 처리하거나 병합하도록 요구
+        if (email != null && userRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("동일 이메일로 이미 가입된 계정이 존재합니다. 먼저 로그인 후 소셜 계정을 연결하세요.");
+        }
+
+        User newUser = User.builder()
+                .email(email)
+                .name(name)
+                .phone(phone)
+                .oauthProvider(authProvider)
+                .providerUserId(providerUserId)
+                .build();
+
+        User savedUser = userRepository.save(newUser);
+
+        // 웰컴 쿠폰 지급
+        try {
+            userCouponService.issueWelcomeCouponToNewUser(savedUser.getId());
+        } catch (Exception ignore) {}
+
+        return savedUser;
+    }
+    public boolean existsByPhone(String phone) {
+    return userRepository.existsByPhone(phone);
+}
 
     // 관리자 권한 토글 (승격/해제)
     public boolean toggleAdmin(Long userId) {
@@ -65,10 +108,9 @@ public class UserService {
     @Transactional
     public User findOrCreateUser(String email, String name, String provider, String providerUserId) {
         AuthProvider authProvider = AuthProvider.valueOf(provider.toUpperCase());
-        System.out.println("[소셜 로그인] findOrCreateUser 호출: email=" + email + ", provider=" + provider + ", providerUserId=" + providerUserId);
         return userRepository.findByEmail(email)
                 .map(user -> {
-                    System.out.println("[소셜 로그인] 기존 사용자 발견: id=" + user.getId() + ", email=" + user.getEmail());
+                    // existing social user found; updating info
                     // 이미 존재하는 유저 → 정보만 업데이트
                     user.setName(name);
                     user.setOauthProvider(authProvider);
@@ -77,7 +119,7 @@ public class UserService {
                 })
                 .orElseGet(() -> {
                     // ✅ 여기서 "새로 가입" → 웰컴 쿠폰 지급 대상으로 삼기
-                    System.out.println("[소셜 로그인] 신규 사용자 생성: email=" + email);
+                    // creating new social user
                     User newUser = User.builder()
                             .email(email)
                             .name(name)
@@ -89,38 +131,39 @@ public class UserService {
 
                     // ✅ 소셜 로그인 가입자도 웰컴 쿠폰 지급
                     try {
-                        System.out.println("[소셜 회원가입] 웰컴 쿠폰 지급 시도: userId=" + savedUser.getId());
+                        // attempt to issue welcome coupon to social user
                         userCouponService.issueWelcomeCouponToNewUser(savedUser.getId());
-                        System.out.println("[소셜 회원가입] 웰컴 쿠폰 지급 완료: userId=" + savedUser.getId());
                     } catch (Exception e) {
                         // 이미 쿠폰 있음 / 장애 등은 로그인 막지 않게만 처리
-                        System.err.println("[소셜 회원가입] 웰컴 쿠폰 지급 실패: userId=" + savedUser.getId()
-                                + ", reason=" + e.getMessage());
+                        // welcome coupon issuance failed (suppressed)
                     }
 
                     return savedUser;
                 });
     }
 
-    // 로컬 회원가입
-    public User createLocalUser(String email, String password, String name) {
+    // 로컬 회원가입 (전화번호 포함)
+    public User createLocalUser(String email, String password, String name, String phone) {
         if (userRepository.findByEmail(email).isPresent()) {
             throw new IllegalArgumentException("이미 존재하는 이메일입니다.");
         }
+
+        if (phone != null && !phone.isBlank() && userRepository.existsByPhone(phone.trim())) {
+            throw new IllegalArgumentException("이미 사용 중인 전화번호입니다.");
+        }
+
         String encodedPassword = passwordEncoder.encode(password);
         User newUser = User.builder()
                 .email(email)
                 .password(encodedPassword)
                 .name(name)
+                .phone(phone != null && !phone.isBlank() ? phone.trim() : null)
                 .oauthProvider(AuthProvider.LOCAL)
                 .providerUserId(null)
                 .build();
         User savedUser = userRepository.save(newUser);
-        System.out.println("[회원가입] 새 사용자 저장: id=" + savedUser.getId() + ", email=" + savedUser.getEmail());
-        // 회원가입 시 웰컴 쿠폰 자동 지급
-        System.out.println("[회원가입] 웰컴 쿠폰 지급 시도: userId=" + savedUser.getId());
+        // local user created; issue welcome coupon
         userCouponService.issueWelcomeCouponToNewUser(savedUser.getId());
-        System.out.println("[회원가입] 웰컴 쿠폰 지급 완료: userId=" + savedUser.getId());
         return savedUser;
     }
 

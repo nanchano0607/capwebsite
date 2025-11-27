@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import api from '../lib/axios';
-import { getAccessToken } from '../lib/token';
-import { useAuth } from '../auth/useAuth';
+import api from '../../lib/axios';
+import { getAccessToken } from '../../lib/token';
+import { useAuth } from '../../auth/useAuth';
 
 const SERVER = "http://localhost:8080";
 

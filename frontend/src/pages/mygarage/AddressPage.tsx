@@ -164,8 +164,9 @@ export default function AddressPage() {
   };
 
   return (
-    // 📦 최상위 컨테이너: fixed로 고정하여 스크롤 방지 (inset-0 = 화면 전체)
-    <div className="fixed inset-0 overflow-hidden">
+    <>
+    {/* Desktop: md 이상에서 표시 */}
+    <div className="hidden md:block fixed inset-0 overflow-hidden">
       {/* 배경 이미지 - fixed로 고정 */}
       {/* 📦 배경 레이어: 화면 전체를 덮는 고정 배경 (inset-0 = top:0, right:0, bottom:0, left:0) */}
       <div
@@ -210,8 +211,8 @@ export default function AddressPage() {
           >
             {/* 왼쪽 위 글씨 */}
             <div 
-              className="absolute top-2 left-12 text-white font-bold text-3xl"
-              style={{ fontFamily: "'Bangers', cursive", imageRendering: 'pixelated', zIndex: 10 }}
+              className="absolute top-2 left-12 text-white font-bold text-3xl font-beaver"
+              style={{ imageRendering: 'pixelated', zIndex: 10 }}
             >
               Address
             </div>
@@ -329,5 +330,78 @@ export default function AddressPage() {
         </div>
       </div>
     </div>
+
+    {/* Mobile: md 미만에서 표시되는 단순화된 주소 UI */}
+    <div
+      className="block md:hidden min-h-screen text-white font-sans"
+      style={{
+        backgroundImage: `url('${SERVER}/images/emptyload.png')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className="px-5 pb-10 space-y-3 overflow-y-auto pt-20">
+        <div className="bg-black/50 rounded-xl p-4 space-y-4 mt-10">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold">Address</h2>
+          </div>
+
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={newAddress}
+              readOnly
+              onClick={openJusoPopup}
+              placeholder="주소검색"
+              className="w-full p-3 rounded-lg bg-white/10 text-black placeholder-gray-500 cursor-pointer"
+              title="주소는 검색으로만 입력됩니다"
+            />
+
+            <input
+              ref={detailRef}
+              type="text"
+              value={addressDetail}
+              onChange={(e) => setAddressDetail(e.target.value)}
+              placeholder="상세주소 (동/층/호)"
+              className="w-full p-3 rounded-lg bg-white/10 text-black placeholder-gray-500 focus:outline-none"
+              onKeyPress={(e) => e.key === 'Enter' && handleAddAddress()}
+              disabled={loading}
+            />
+
+            <button
+              onClick={handleAddAddress}
+              disabled={loading}
+              className="w-full h-12 rounded-md bg-transparent border-2 border-white text-white font-bold disabled:opacity-50"
+            >
+              {loading ? '처리중...' : 'Save'}
+            </button>
+          </div>
+
+          <div className="pt-2">
+            <h3 className="text-lg font-bold mb-2">My Address</h3>
+            <div className="space-y-2">
+              {addresses.length === 0 ? (
+                <p className="text-white">등록된 주소가 없습니다.</p>
+              ) : (
+                addresses.map((address, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-white/10 rounded">
+                    <span className="text-white text-sm">{address}</span>
+                    <button
+                      onClick={() => handleRemoveAddress(address)}
+                      disabled={loading}
+                      className="px-3 py-1 bg-transparent text-red-400 rounded border border-red-400 hover:bg-red-400/10 disabled:opacity-50 text-xs font-semibold"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    </>
   );
 }

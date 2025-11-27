@@ -146,69 +146,143 @@ export default function NewPage() {
 
         {/* NEW 상품 표시 영역 */}
         {newCaps.length > 0 && (
-          <div
-            className="absolute inset-0 flex items-center justify-center px-8"
-            style={{ zIndex: 5 }}
-          >
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-6xl">
-              {newCaps.map((cap) => (
-                <div
-                  key={cap.id}
-                  className="bg-white/90 rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-all relative group"
-                >
-                  {/* 관리자 전용 삭제 버튼 */}
-                  {isAdmin && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveFromNew(cap.id, cap.name);
-                      }}
-                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 z-10"
-                      title="NEW 상품에서 제거"
-                    >
-                      ✕
-                    </button>
-                  )}
-
-                  <div
-                    className="cursor-pointer"
-                    onClick={() => window.location.href = `/cap/${cap.id}`}
-                  >
-                    <img
-                      src={cap.mainImageUrl || cap.imageUrl}
-                      alt={cap.name}
-                      className="w-full h-48 object-cover"
-                    />
-                    <div className="p-4">
-                      <h3
-                        className="font-semibold text-lg mb-2 truncate"
-                        style={{ fontFamily: "'Bangers', cursive" }}
-                      >
-                        {cap.name}
-                      </h3>
-                      <p
-                        className="text-gray-700 font-bold"
-                        style={{ fontFamily: "'Bangers', cursive" }}
-                      >
-                        {cap.price?.toLocaleString()}원
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+  <div
+    className="absolute inset-0 flex items-center justify-center px-8"
+    style={{ zIndex: 5 }}
+  >
+    {/* 3개일 때는 커스텀 레이아웃 */}
+    {newCaps.length === 3 ? (
+      <div className="w-full max-w-6xl flex flex-col gap-4">
+        {/* 첫 번째: 가운데 크게 */}
+        <div className="flex justify-center">
+          <div className="bg-transparent overflow-hidden transition-all relative group w-full md:w-2/3 lg:w-1/2">
+            {isAdmin && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemoveFromNew(newCaps[0].id, newCaps[0].name);
+                }}
+                className="absolute top-2 right-2 bg-red-600 text-white w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 z-10"
+                title="NEW 상품에서 제거"
+              >
+                ✕
+              </button>
+            )}
+            <div
+              className="cursor-pointer"
+              onClick={() => (window.location.href = `/cap/${newCaps[0].id}`)}
+            >
+              <img
+                src={newCaps[0].mainImageUrl || newCaps[0].imageUrl}
+                alt={newCaps[0].name}
+                className="w-full h-86 object-contain"
+              />
             </div>
           </div>
-        )}
+        </div>
+
+        {/* 두 번째 줄: 왼쪽 크게, 오른쪽 하나 */}
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* 왼쪽 크게 */}
+          <div className="bg-transparent overflow-hidden transition-all relative group w-full md:w-2/3 lg:w-1/2">
+            {isAdmin && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemoveFromNew(newCaps[1].id, newCaps[1].name);
+                }}
+                className="absolute top-2 right-2 bg-red-600 text-white w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 z-10"
+                title="NEW 상품에서 제거"
+              >
+                ✕
+              </button>
+            )}
+            <div
+              className="cursor-pointer"
+              onClick={() => (window.location.href = `/cap/${newCaps[1].id}`)}
+            >
+              <img
+                src={newCaps[1].mainImageUrl || newCaps[1].imageUrl}
+                alt={newCaps[1].name}
+                className="w-full h-86 object-contain"
+              />
+            </div>
+          </div>
+
+          {/* 오른쪽 하나 (조금 좁게) */}
+          <div className="bg-transparent overflow-hidden transition-all relative group w-full md:w-2/3 lg:w-1/2">
+            {isAdmin && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemoveFromNew(newCaps[2].id, newCaps[2].name);
+                }}
+                className="absolute top-2 right-2 bg-red-600 text-white w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 z-10"
+                title="NEW 상품에서 제거"
+              >
+                ✕
+              </button>
+            )}
+            <div
+              className="cursor-pointer"
+              onClick={() => (window.location.href = `/cap/${newCaps[2].id}`)}
+            >
+              <img
+                src={newCaps[2].mainImageUrl || newCaps[2].imageUrl}
+                alt={newCaps[2].name}
+                className="w-full h-86 object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : (
+      // 그 외 개수일 때는 기존 그리드 유지
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-6xl">
+        {newCaps.map((cap) => (
+          <div
+            key={cap.id}
+            className="bg-white/90 overflow-hidden shadow-lg hover:shadow-2xl transition-all relative group"
+          >
+            {isAdmin && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemoveFromNew(cap.id, cap.name);
+                }}
+                className="absolute top-2 right-2 bg-red-600 text-white w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 z-10"
+                title="NEW 상품에서 제거"
+              >
+                ✕
+              </button>
+            )}
+
+            <div
+              className="cursor-pointer"
+              onClick={() => (window.location.href = `/cap/${cap.id}`)}
+            >
+              <img
+                src={cap.mainImageUrl || cap.imageUrl}
+                alt={cap.name}
+                className="w-full h-48 object-cover"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
 
         {/* 관리자 전용 상품 선택 버튼 */}
         {isAdmin && (
           <button
-            onClick={handleOpenModal}
-            className="absolute bottom-8 right-8 px-6 py-3 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700"
-            style={{ zIndex: 10, fontFamily: "'Bangers', cursive", fontSize: "20px" }}
-          >
-            NEW 상품 선택
-          </button>
+              onClick={handleOpenModal}
+              className="absolute bottom-8 right-8 px-6 py-3 bg-blue-600 text-white shadow-lg hover:bg-blue-700 font-beaver"
+              style={{ zIndex: 10, fontSize: "20px" }}
+            >
+              NEW 상품 선택
+            </button>
         )}
 
         {/* 상품 선택 모달 */}
@@ -219,13 +293,12 @@ export default function NewPage() {
             onClick={() => setShowSelectModal(false)}
           >
             <div
-              className="bg-white p-8 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              className="bg-white p-8 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <h2
-                className="text-3xl mb-6"
+                className="text-3xl mb-6 font-beaver"
                 style={{
-                  fontFamily: "'Bangers', cursive",
                   textShadow: "2px 2px 0 #1A3A47",
                 }}
               >
@@ -246,7 +319,7 @@ export default function NewPage() {
                         <div
                           key={cap.id}
                           onClick={() => toggleCapSelection(cap.id)}
-                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                          className={`border-2 p-4 cursor-pointer transition-all ${
                             selectedCapIds.includes(cap.id)
                               ? "border-blue-600 bg-blue-50"
                               : "border-gray-300 hover:border-gray-400"
@@ -255,7 +328,7 @@ export default function NewPage() {
                           <img
                             src={cap.mainImageUrl || cap.imageUrl}
                             alt={cap.name}
-                            className="w-full h-40 object-cover rounded mb-2"
+                            className="w-full h-40 object-cover mb-2"
                           />
                           <h3 className="font-semibold text-sm truncate">
                             {cap.name}
@@ -281,16 +354,16 @@ export default function NewPage() {
                       <button
                         onClick={handleSaveSelection}
                         disabled={loading || selectedCapIds.length === 0}
-                        className="flex-1 px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        style={{ fontFamily: "'Bangers', cursive", fontSize: "18px" }}
+                        className="flex-1 px-4 py-3 bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-beaver"
+                        style={{ fontSize: "18px" }}
                       >
                         {loading ? "저장 중..." : "저장"}
                       </button>
                       <button
                         onClick={() => setShowSelectModal(false)}
                         disabled={loading}
-                        className="flex-1 px-4 py-3 bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
-                        style={{ fontFamily: "'Bangers', cursive", fontSize: "18px" }}
+                        className="flex-1 px-4 py-3 bg-gray-300 text-gray-800 hover:bg-gray-400 font-beaver"
+                        style={{ fontSize: "18px" }}
                       >
                         취소
                       </button>

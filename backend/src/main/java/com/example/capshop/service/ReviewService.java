@@ -240,4 +240,14 @@ public class ReviewService {
         
         return new ReviewResponse(review);
     }
+
+    // 모든 리뷰 조회 (상품 구분 없이, 최신순)
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getAllReviews() {
+        List<Review> reviews = reviewRepository.findAll();
+        return reviews.stream()
+                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+                .map(ReviewResponse::new)
+                .collect(Collectors.toList());
+    }
 }

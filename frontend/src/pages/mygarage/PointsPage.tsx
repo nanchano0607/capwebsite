@@ -106,7 +106,8 @@ export default function PointsPage() {
   };
 
   return (
-    <div className="fixed inset-0 overflow-hidden">
+    <>
+    <div className="hidden md:block fixed inset-0 overflow-hidden">
       {/* 배경 이미지 */}
       <div
         className="absolute inset-0 w-full h-full bg-cover bg-center"
@@ -146,8 +147,8 @@ export default function PointsPage() {
           >
             {/* 좌상단 타이틀 */}
             <div
-              className="absolute top-2 left-12 text-white font-bold text-3xl"
-              style={{ fontFamily: "'Bangers', cursive", imageRendering: 'pixelated', zIndex: 10 }}
+              className="absolute top-2 left-12 text-white font-bold text-3xl font-beaver"
+              style={{ imageRendering: 'pixelated', zIndex: 10 }}
             >
               Points
             </div>
@@ -175,7 +176,7 @@ export default function PointsPage() {
                   <div className="space-y-6">
                     {/* 현재 적립금 */}
                     <div className="bg-white/10 rounded-lg border border-white/20 p-6">
-                      <h2 className="text-xl font-bold text-black mb-4" style={{ fontFamily: "'Bangers', cursive" }}>
+                      <h2 className="text-xl font-bold text-black mb-4 font-beaver">
                         보유 적립금
                       </h2>
                       <div className="text-center">
@@ -333,5 +334,95 @@ export default function PointsPage() {
         </div>
       </div>
     </div>
+
+    {/* Mobile: md 미만 단순화된 포인트 UI */}
+    <div
+      className="block md:hidden min-h-screen text-white font-sans"
+      style={{
+        backgroundImage: `url('${SERVER}/images/emptyload.png')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className="px-5 pb-10 space-y-3 overflow-y-auto pt-20">
+        <div className="bg-black/50 rounded-xl p-4 space-y-4 mt-30">
+          <h2 className="text-xl font-bold">Points</h2>
+
+          {loading ? (
+            <div className="text-white/80">로딩 중...</div>
+          ) : (
+            <div className="space-y-3">
+              <div className="p-4 bg-white/10 rounded-lg text-center">
+                <div className="text-sm text-white/80">보유 적립금</div>
+                <div className="text-3xl font-bold text-white">{currentPoints.toLocaleString()}P</div>
+              </div>
+
+              <div className="p-3 bg-white/10 rounded-lg">
+                <div className="mb-2 text-white font-semibold">쿠폰 등록</div>
+                <div className="flex gap-2">
+                  <input value={claimCode} onChange={(e) => setClaimCode(e.target.value)} placeholder="쿠폰 코드" className="flex-1 p-2 rounded bg-white/10 text-white" />
+                  <button
+                    onClick={async () => {
+                      if (!claimCode.trim()) return alert('쿠폰 코드를 입력해주세요.');
+                      if (!user?.id) return alert('로그인이 필요합니다.');
+                      setClaiming(true);
+                      setCouponsError(null);
+                      try {
+                        const token = localStorage.getItem('access_token');
+                        const res = await fetch(`${SERVER}/api/user-coupons/claim`, {
+                          method: 'POST',
+                          credentials: 'include',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                          },
+                          body: JSON.stringify({ couponCode: claimCode.trim() }),
+                        });
+                        const body = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
+                        alert('쿠폰이 정상적으로 등록되었습니다.');
+                        setClaimCode('');
+                        await fetchUserCoupons();
+                      } catch (e: any) {
+                        console.error('쿠폰 등록 실패', e);
+                        setCouponsError(e?.message || '쿠폰 등록에 실패했습니다.');
+                      } finally {
+                        setClaiming(false);
+                      }
+                    }}
+                    className="px-3 py-2 rounded bg-blue-600 text-white"
+                    disabled={claiming}
+                  >
+                    {claiming ? '등록 중...' : '등록'}
+                  </button>
+                </div>
+                {couponsLoading ? <div className="text-sm text-white/80 mt-2">불러오는 중...</div> : couponsError ? <div className="text-sm text-red-400 mt-2">{couponsError}</div> : null}
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-white mb-2">사용 가능한 쿠폰</h3>
+                {userCoupons.length === 0 ? (
+                  <div className="text-white/80">사용 가능한 쿠폰이 없습니다.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {userCoupons.map((uc) => (
+                      <div key={uc.id} className="p-3 bg-white/10 rounded flex justify-between">
+                        <div className="text-white text-sm">{uc.coupon?.name ?? `쿠폰 #${uc.coupon?.id ?? uc.id}`}</div>
+                        <div className="text-white text-sm font-bold">{(() => { const val = uc.discountAmount ?? uc.coupon?.discountValue; if (val == null) return '-'; return uc.coupon?.type === 'PERCENTAGE' ? `${val}%` : `${val.toLocaleString()}원`; })()}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <button onClick={() => navigate('/account')} className="w-full h-12 rounded-md bg-white/20 text-black">뒤로 가기</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+    </>
   );
 }

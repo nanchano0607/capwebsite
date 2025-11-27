@@ -258,7 +258,7 @@ export default function OrderManagement({ isOpen, onToggle }: OrderManagementPro
   };
 
   return (
-    <div className="border p-4 rounded mb-8">
+    <div className="border p-4 rounded mb-8 font-sans">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold">주문 관리</h2>

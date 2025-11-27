@@ -105,7 +105,7 @@ export default function Coupon({ isOpen, onToggle }: CouponAdminProps) {
   };
 
   return (
-    <div className="border p-4 rounded">
+    <div className="border p-4 rounded font-sans">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">쿠폰 관리</h2>
         <button

@@ -1,3 +1,4 @@
+//상품등록
 import { useState } from "react";
 
 export default function RegisterPage() {
@@ -110,7 +111,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-red-500 pt-8 pb-16">
+    <div className="min-h-screen bg-red-500 pt-8 pb-16 font-sans">
       <div className="max-w-lg mx-auto px-4">
         <h2 className="text-2xl font-bold mb-6">상품 등록</h2>
         <form onSubmit={handleRegister} className="space-y-4">

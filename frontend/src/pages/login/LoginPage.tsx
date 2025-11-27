@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/useAuth";
+import { useAuth } from "../../auth/useAuth";
 import axios from "axios";
-import { setAccessToken } from "../lib/token";
+import { setAccessToken } from "../../lib/token";
 
 const API = import.meta.env.DEV ? "http://localhost:8080" : "";
 const SERVER = "http://localhost:8080";
@@ -96,7 +96,7 @@ export default function LoginPage({ success }: { success?: boolean }) {
       >
         {/* 가장 바깥 테두리 (#000) */}
         <div
-          className="relative bg-[#000] mt-12"
+          className="relative bg-[#000] mt-6 mx-3 md:mx-0"
           style={{
             imageRendering: 'pixelated',
             clipPath: `polygon(
@@ -122,11 +122,10 @@ export default function LoginPage({ success }: { success?: boolean }) {
               padding: '24px'
             }}
           >
-            {/* 가장 안쪽 컨텐츠 (#F5DEB3) */}
-            <div 
-              className="w-full px-8 py-6 bg-[#F5DEB3]"
+            {/* 가장 안쪽 컨텐츠 (#F5DEB3) - 모바일 우선: max-width 적용 */}
+            <div
+              className="w-full px-6 py-5 bg-[#F5DEB3] max-w-md md:min-w-[400px] mx-auto"
               style={{
-                minWidth: '400px',
                 imageRendering: 'pixelated',
                 clipPath: `polygon(
                   0% 16px, 16px 16px, 16px 0%,
@@ -136,7 +135,7 @@ export default function LoginPage({ success }: { success?: boolean }) {
                 )`
               }}
             >
-          <h1 className="text-2xl font-semibold mb-8" style={{ imageRendering: 'pixelated' }}>Sign in</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold mb-6 text-center" style={{ imageRendering: 'pixelated' }}>Sign in</h1>
           
           {/* 로컬 로그인 폼 */}
           <form onSubmit={handleLocalLogin} className="space-y-4 mb-6">
@@ -146,7 +145,8 @@ export default function LoginPage({ success }: { success?: boolean }) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-light"
+                style={{ fontFamily: "Noto Sans KR, 'Apple SD Gothic Neo', 'Nanum Gothic', system-ui, -apple-system, 'Segoe UI'" }}
                 placeholder="아이디를 입력하세요"
                 required
               />
@@ -157,7 +157,8 @@ export default function LoginPage({ success }: { success?: boolean }) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-light"
+                style={{ fontFamily: "Noto Sans KR, 'Apple SD Gothic Neo', 'Nanum Gothic', system-ui, -apple-system, 'Segoe UI'" }}
                 placeholder="비밀번호를 입력하세요"
                 required
               />
@@ -168,7 +169,7 @@ export default function LoginPage({ success }: { success?: boolean }) {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-11 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-full h-12 md:h-11 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-base"
             >
               {isLoading ? "로그인 중..." : "로그인"}
             </button>
@@ -185,26 +186,26 @@ export default function LoginPage({ success }: { success?: boolean }) {
           </div>
 
           {/* OAuth 로그인 */}
-          <div className="space-y-3">
-            <a
-              href={`${API}/oauth2/authorization/kakao`}
-              className="block h-11 rounded-md bg-[#FEE500] text-black font-medium flex items-center justify-center"
-            >
-              Continue with Kakao
-            </a>
-            <a
-              href={`${API}/oauth2/authorization/naver`}
-              className="block h-11 rounded-md bg-[#03C75A] text-white font-medium flex items-center justify-center"
-            >
-              Continue with Naver
-            </a>
-            <a
-              href={`${API}/oauth2/authorization/google`}
-              className="block h-11 rounded-md bg-slate-900 text-white font-medium flex items-center justify-center"
-            >
-              Continue with Google
-            </a>
-          </div>
+            <div className="space-y-3">
+              <a
+                href={`${API}/oauth2/authorization/kakao`}
+                className="block h-12 rounded-md bg-[#FEE500] text-black font-medium flex items-center justify-center text-base oauth-unified"
+              >
+                Continue with Kakao
+              </a>
+              <a
+                href={`${API}/oauth2/authorization/naver`}
+                className="block h-12 rounded-md bg-[#03C75A] text-white font-medium flex items-center justify-center text-base oauth-unified"
+              >
+                Continue with Naver
+              </a>
+              <a
+                href={`${API}/oauth2/authorization/google`}
+                className="block h-12 rounded-md bg-slate-900 text-white font-medium flex items-center justify-center text-base oauth-unified"
+              >
+                Continue with Google
+              </a>
+            </div>
 
           {/* 회원가입 링크 */}
           <div className="mt-6 text-center">

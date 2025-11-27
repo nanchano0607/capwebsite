@@ -26,6 +26,7 @@ import com.example.capshop.dto.SignupRequest;
 import com.example.capshop.repository.RefreshTokenRepository;
 import com.example.capshop.repository.UserConsentRepository;
 import com.example.capshop.service.UserService;
+import com.example.capshop.service.PhoneVerificationService;
 import com.example.capshop.util.CookieUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,38 +43,41 @@ public class UserController {
     private final UserConsentRepository userConsentRepository;
     private final TokenProvider tokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final PhoneVerificationService phoneVerificationService;
     
     // 로그아웃: RT 삭제 + 쿠키 제거
     @PostMapping("api/auth/logout")
     public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response,
                                     @AuthenticationPrincipal User user) {
         try {
-            System.out.println("[LOG] logout requested");
+            // logout requested
             if (user != null) {
-                System.out.println("[LOG] logout user: id=" + user.getId() + ", email=" + user.getEmail());
+                // logout user info available
                 refreshTokenRepository.findByUserId(user.getId()).ifPresent(rt -> {
                     refreshTokenRepository.delete(rt);
-                    System.out.println("[LOG] deleted refresh token for userId=" + user.getId());
+                    // deleted refresh token for user
                 });
             } else {
-                System.out.println("[LOG] logout anonymous request - trying cookie-based RT lookup");
+                // anonymous logout request - checking cookie-based RT
                 CookieUtil.getCookieValue(request, "refresh_token").ifPresent(rt -> {
-                    System.out.println("[LOG] found refresh_token cookie value: " + rt);
+                    // found refresh_token cookie value
                     refreshTokenRepository.findByRefreshToken(rt).ifPresentOrElse(entity -> {
                         refreshTokenRepository.delete(entity);
-                        System.out.println("[LOG] deleted refresh token by token value");
-                    }, () -> System.out.println("[LOG] no refresh token entity found for provided token"));
+                        // deleted refresh token by token value
+                    }, () -> {
+                        // no refresh token entity found for provided token
+                    });
                 });
             }
 
             // 쿠키 삭제 (로컬: secure=false, sameSite=Lax)
             CookieUtil.deleteCookie(response, "refresh_token", false, "Lax");
             CookieUtil.deleteCookie(response, "access_token", false, "Lax");
-            System.out.println("[LOG] cleared cookies: refresh_token, access_token");
+            // cleared cookies: refresh_token, access_token
 
             // SecurityContext 클리어
             SecurityContextHolder.clearContext();
-            System.out.println("[LOG] security context cleared");
+            // security context cleared
 
             return ResponseEntity.ok(Map.of("message", "로그아웃 되었습니다."));
         } catch (Exception e) {
@@ -189,9 +193,25 @@ public class UserController {
             // 1. IP 주소와 User-Agent 추출
             String clientIp = getClientIp(httpRequest);
             String userAgent = httpRequest.getHeader("User-Agent");
-            
+                // Received signup request (sensitive fields are not logged)
+            // 1.5 전화번호 필수 및 인증 확인
+            String phone = request.getPhone();
+            if (phone == null || phone.isBlank()) {
+                return ResponseEntity.badRequest().body("전화번호를 입력하고 인증해주세요.");
+            }
+
+            boolean phoneVerified = phoneVerificationService.isVerified(phone);
+            if (!phoneVerified) {
+                return ResponseEntity.badRequest().body("전화번호 인증이 필요합니다.");
+            }
+
+            // 전화번호가 이미 등록된 계정이 있는지 확인
+            if (userService.existsByPhone(phone)) {
+                return ResponseEntity.badRequest().body("이미 사용 중인 전화번호입니다.");
+            }
+
             // 2. 사용자 생성
-            User user = userService.createLocalUser(request.getEmail(), request.getPassword(), request.getName());
+            User user = userService.createLocalUser(request.getEmail(), request.getPassword(), request.getName(), phone);
             
             // 3. 동의 정보 저장 (IP, User-Agent 포함)
             saveConsents(user, request.getAgreements(), clientIp, userAgent);
@@ -231,8 +251,7 @@ public class UserController {
                 )
             );
             
-            // 로그 출력으로 응답 데이터 확인
-            System.out.println("Login Response: " + responseData);
+            // responseData prepared
             
             return ResponseEntity.ok(responseData);
         } else {
@@ -305,5 +324,16 @@ public class UserController {
         }
         userService.removeAddress(userId, address);
         return ResponseEntity.ok(Map.of("message", "주소가 삭제되었습니다."));
+    }
+
+    // 이메일(아이디) 중복 확인
+    @PostMapping("/user/id/overlap")
+    public ResponseEntity<Boolean> checkEmailOverlap(@RequestBody Map<String, String> req) {
+        String email = req.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(false);
+        }
+        boolean exists = userService.findByEmail(email).isPresent();
+        return ResponseEntity.ok(exists);
     }
 }

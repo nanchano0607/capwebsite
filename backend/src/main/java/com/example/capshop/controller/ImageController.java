@@ -15,8 +15,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +25,7 @@ import java.util.Map;
 public class ImageController {
     private String currentBackground = "mainvideo.mp4"; // 기본값
     private String logoImage = "homelogo.png"; // 로고 이미지 기본값
+    
 
     // 로고 이미지 조회 - 현재 설정된 로고 이미지 URL 반환
     @GetMapping("/logo")
@@ -62,32 +63,32 @@ public class ImageController {
 
     // 이미지 파일 조회 - 업로드된 이미지를 브라우저에 표시하기 위한 엔드포인트
     @GetMapping("/images/{filename}")
-public ResponseEntity<Resource> getImage(@PathVariable("filename") String filename) throws MalformedURLException {
-    Path imagePath = Paths.get("/Users/kimchanho/Desktop/project/capshopimage").resolve(filename);
-    Resource resource = new UrlResource(imagePath.toUri());
+    public ResponseEntity<Resource> getImage(@PathVariable("filename") String filename) throws MalformedURLException {
+        Path imagePath = Paths.get("/Users/kimchanho/Desktop/project/capshopimage").resolve(filename);
+        Resource resource = new UrlResource(imagePath.toUri());
 
-    if (!resource.exists()) {
-        return ResponseEntity.notFound().build();
+        if (!resource.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // 파일 확장자에 따라 Content-Type 결정
+        String contentType = "application/octet-stream"; // 기본값
+        String fileName = filename.toLowerCase();
+        
+        if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
+            contentType = "image/jpeg";
+        } else if (fileName.endsWith(".png")) {
+            contentType = "image/png";
+        } else if (fileName.endsWith(".gif")) {
+            contentType = "image/gif";
+        } else if (fileName.endsWith(".webp")) {
+            contentType = "image/webp";
+        }
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, contentType)
+                .body(resource);
     }
-
-    // 파일 확장자에 따라 Content-Type 결정
-    String contentType = "application/octet-stream"; // 기본값
-    String fileName = filename.toLowerCase();
-    
-    if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
-        contentType = "image/jpeg";
-    } else if (fileName.endsWith(".png")) {
-        contentType = "image/png";
-    } else if (fileName.endsWith(".gif")) {
-        contentType = "image/gif";
-    } else if (fileName.endsWith(".webp")) {
-        contentType = "image/webp";
-    }
-
-    return ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_TYPE, contentType)
-            .body(resource);
-}
 
     // 단일 파일 업로드 - 이미지/비디오 파일을 서버에 저장하고 URL 반환
     @PostMapping("/api/upload")
@@ -114,11 +115,7 @@ public ResponseEntity<Resource> getImage(@PathVariable("filename") String filena
             @RequestParam("mainImage") MultipartFile mainImage,
             @RequestParam("images") List<MultipartFile> images
     ) throws IOException {
-        System.out.println("[uploadCapImages] mainImage = " + mainImage.getOriginalFilename());
-        System.out.println("[uploadCapImages] images count = " + images.size());
-        for (MultipartFile file : images) {
-            System.out.println("[uploadCapImages] image file = " + file.getOriginalFilename());
-        }
+        // uploadCapImages: received mainImage and images
 
         String mainExt = "";
         int mainIdx = mainImage.getOriginalFilename().lastIndexOf('.');
@@ -154,8 +151,7 @@ public ResponseEntity<Resource> getImage(@PathVariable("filename") String filena
             imageUrls.add(url);
         }
 
-        System.out.println("[uploadCapImages] mainImageUrl = " + mainUrl);
-        System.out.println("[uploadCapImages] imageUrls = " + imageUrls);
+        // uploadCapImages: mainImageUrl and imageUrls prepared
 
         return Map.of(
                 "mainImageUrl", mainUrl,
@@ -204,7 +200,7 @@ public ResponseEntity<Resource> getImage(@PathVariable("filename") String filena
     // 리뷰 이미지 업로드 - 리뷰 작성 시 이미지를 업로드하고 URL 목록 반환
     @PostMapping("/api/review/upload")
     public Map<String, Object> uploadReviewImages(@RequestParam("images") List<MultipartFile> images) throws IOException {
-        System.out.println("[uploadReviewImages] images count = " + images.size());
+        // uploadReviewImages: images received
         
         List<String> imageUrls = new ArrayList<>();
         
@@ -213,7 +209,7 @@ public ResponseEntity<Resource> getImage(@PathVariable("filename") String filena
                 continue;
             }
             
-            System.out.println("[uploadReviewImages] image file = " + file.getOriginalFilename());
+            // processing review image file
             
             // 타임스탬프를 포함한 고유 파일명 생성
             String originalFilename = file.getOriginalFilename();
@@ -238,7 +234,7 @@ public ResponseEntity<Resource> getImage(@PathVariable("filename") String filena
             imageUrls.add(url);
         }
         
-        System.out.println("[uploadReviewImages] uploaded imageUrls = " + imageUrls);
+        // uploaded imageUrls prepared
         
         return Map.of("imageUrls", imageUrls);
     }
@@ -284,10 +280,8 @@ public ResponseEntity<Resource> getImage(@PathVariable("filename") String filena
 
             if (file.exists() && file.delete()) {
                 success.add(filename);
-                System.out.println("[deleteReviewImages] 삭제 성공: " + filename);
             } else {
                 fail.add(filename);
-                System.out.println("[deleteReviewImages] 삭제 실패: " + filename);
             }
         }
 

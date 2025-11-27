@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import api from '../lib/axios';
+import api from '../../lib/axios';
 
 export default function SuccessPage() {
   const [searchParams] = useSearchParams();

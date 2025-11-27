@@ -107,6 +107,16 @@ public class ReviewController {
         }
     }
     
+    // 모든 리뷰 조회 (상품 구분 없이, 비로그인 접근 허용)
+    @GetMapping("/reviews")
+    public ResponseEntity<?> getAllReviews() {
+        try {
+            List<ReviewResponse> reviews = reviewService.getAllReviews();
+            return ResponseEntity.ok(reviews);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
     // 특정 상품의 포토 리뷰 조회
     @GetMapping("/api/reviews/cap/{capId}/photos")
     public ResponseEntity<?> getPhotoReviewsByCap(@PathVariable("capId") Long capId) {

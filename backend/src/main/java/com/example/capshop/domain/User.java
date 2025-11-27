@@ -32,6 +32,7 @@ public class User implements UserDetails {
     private String password;
     private boolean isAdmin = false;
 
+    @Column(unique = true)
     private String phone;           // 전화번호
     
     @ElementCollection

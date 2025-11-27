@@ -323,8 +323,8 @@ export default function OrderPage() {
   /** ========== 렌더링 ========== */
   return (
     <>
-      {/* 전체 고정 컨테이너 */}
-      <div className="fixed inset-0 overflow-hidden">
+      {/* 전체 고정 컨테이너 (PC : md 이상에서 표시) */}
+      <div className="hidden md:block fixed inset-0 overflow-hidden">
         {/* 배경 */}
         <div
           className="fixed inset-0 w-full h-full bg-cover bg-center"
@@ -367,15 +367,14 @@ export default function OrderPage() {
             >
               {/* 좌상단 타이틀 */}
               <div
-                className="absolute top-2 left-12 text-white font-bold text-3xl"
-                style={{ fontFamily: "'Bangers', cursive", imageRendering: "pixelated", zIndex: 10 }}
+                className="absolute top-2 left-12 text-white font-bold text-3xl font-beaver"
+                style={{ imageRendering: "pixelated", zIndex: 10 }}
               >
                 Order
               </div>
-
               {/* 안쪽 컨텐츠 */}
               <div
-                className="w-full px-4 py-4 bg-[#f2d4a7] scrollbar-hide overflow-y-auto"
+                className="w-full px-4 bg-[#f2d4a7] scrollbar-hide overflow-y-auto"
                 style={{
                   imageRendering: "pixelated",
                   clipPath: `polygon(
@@ -632,6 +631,104 @@ export default function OrderPage() {
         {/* 내용 래퍼 끝 */}
       </div>
       {/* 전체 고정 컨테이너 끝 */}
+
+      {/* ================= 모바일 (md 미만) 버전: 단순화된 스택 리스트 ================= */}
+     <div
+      className="block md:hidden min-h-screen text-white font-sans"
+      style={{
+        backgroundImage: `url('${SERVER}/images/emptyload.png')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+     >
+      {/* 네비게이션 높이만큼 위 여백 주고, 가운데 정렬 */}
+      <div className="w-full h-full flex justify-center items-start pt-20 px-5">
+        {/* 🔒 여기 컨테이너는 고정, 내부만 스크롤 */}
+        <div className="w-full max-w-md bg-black/50 rounded-xl p-3 mt-4 flex flex-col max-h-[calc(100vh-120px)] mt-10">
+          
+          {/* 안쪽 내용 전체를 스크롤 영역으로 */}
+          <div className="space-y-3 overflow-y-auto scrollbar-hide pr-1">
+            {loading ? (
+              <p className="text-white/80 p-4">로딩 중...</p>
+            ) : displayedOrders.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-white text-base mb-4">주문 내역이 없습니다.</p>
+                <button
+                  onClick={() => navigate("/cap")}
+                  className="px-6 py-3 bg-white/20 text-white rounded-lg font-bold hover:bg-white/30 transition-colors border border-white/30"
+                >
+                  쇼핑하러 가기
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {displayedOrders.map((order) => (
+                  <div key={order.id} className="w-full bg-transparent text-white rounded-xl p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="text-sm text-white/90">
+                          {new Date(order.orderDate).toLocaleString("ko-KR")}
+                        </div>
+                        <div className="text-base font-bold">{order.orderId}</div>
+                        <div className={`text-sm mt-1 ${getStatusColor(order.status)}`}>
+                          {getStatusText(order.status)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-red-400">
+                          {money(order.finalPrice || order.totalPrice)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                      <button
+                        onClick={() => navigate(`/order/${order.id}`)}
+                        className="w-full h-12 flex items-center justify-center rounded-md bg-white/10 text-white hover:bg-white/20 transition-colors"
+                      >
+                        상세보기
+                      </button>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {order.status === "ORDERED" && (
+                          <button
+                            onClick={() => handleCancelOrder(order.id)}
+                            disabled={actionLoading === order.id}
+                            className="h-12 w-full rounded-md bg-red-500/80 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {actionLoading === order.id ? "처리중..." : "주문 취소"}
+                          </button>
+                        )}
+
+                        {order.status === "DELIVERED" && (
+                          <>
+                            <button
+                              onClick={() => handleConfirmPurchase(order.id)}
+                              disabled={actionLoading === order.id || order.confirmed}
+                              className="h-12 w-full rounded-md bg-green-500/80 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {order.confirmed ? "구매확정 완료" : actionLoading === order.id ? "처리중..." : "구매 확정"}
+                            </button>
+
+                            <button
+                              onClick={() => openReturnModal(order.id)}
+                              disabled={actionLoading === order.id || order.confirmed}
+                              className="h-12 w-full rounded-md bg-orange-500/80 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {order.confirmed ? "반품 불가" : actionLoading === order.id ? "처리중..." : "반품 요청"}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
 
       {/* 안내 배너 */}
       {banner && (

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import api from "../lib/axios";
+import api from "../../lib/axios";
 import { useLocation, Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/useAuth";
+import { useAuth } from "../../auth/useAuth";
 
 const SERVER = "http://localhost:8080";
 

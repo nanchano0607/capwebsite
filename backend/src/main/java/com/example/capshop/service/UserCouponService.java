@@ -50,12 +50,10 @@ public class UserCouponService {
     public UserCouponResponse issueCouponToUserById(Long userId, Long couponId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
         Coupon coupon = couponService.findById(couponId);
-        System.out.println("[LOG] 쿠폰 지급 시도: userId=" + userId + ", couponId=" + couponId);
-        System.out.println("[LOG] 유저 정보: id=" + user.getId() + ", email=" + user.getEmail() + ", name=" + user.getName());
-        System.out.println("[LOG] 쿠폰 정보: id=" + coupon.getId() + ", code=" + coupon.getCode() + ", name=" + coupon.getName());
+        // issuing coupon to user: user and coupon loaded
         // 재사용 불가 쿠폰인 경우 이미 보유하고 있는지 확인
         if (!coupon.isReusable() && userCouponRepository.existsByUserAndCoupon(user, coupon)) {
-            System.out.println("[LOG] 이미 보유한 쿠폰: userId=" + userId + ", couponId=" + couponId);
+            // user already has non-reusable coupon
             throw new IllegalArgumentException("이미 보유하고 있는 쿠폰입니다.");
         }
         // 유효기간 커스터마이징: 지급일로부터 30일
@@ -63,7 +61,7 @@ public class UserCouponService {
         userCoupon.setValidFrom(userCoupon.getObtainedAt());
         userCoupon.setValidUntil(userCoupon.getObtainedAt().plusDays(30));
         UserCoupon savedUserCoupon = userCouponRepository.save(userCoupon);
-        System.out.println("[LOG] 쿠폰 지급 완료: userCouponId=" + savedUserCoupon.getId() + ", userId=" + userId + ", couponId=" + couponId);
+        // coupon issued successfully
         return new UserCouponResponse(savedUserCoupon);
     }
     

@@ -5,6 +5,7 @@ import com.example.capshop.repository.RefreshTokenRepository;
 import com.example.capshop.service.OAuth2UserCustomService;
 import com.example.capshop.service.UserService;
 import lombok.RequiredArgsConstructor;
+import com.example.capshop.service.SocialSignupTokenService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -33,6 +34,7 @@ public class WebOAuthSecurityConfig {
     private final TokenProvider tokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserService userService;
+    private final SocialSignupTokenService socialSignupTokenService;
     
     @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins}")
     private String allowedOriginsProp;
@@ -60,40 +62,55 @@ public class WebOAuthSecurityConfig {
     }
 
     /** 체인 #2: 나머지 (API는 인증 필요, 그 외는 허용 + OAuth2 + JWT 필터) */
-    @Bean
-    @Order(2)
-    public SecurityFilterChain appChain(HttpSecurity http, HandlerMappingIntrospector introspector) throws Exception {
-        MvcRequestMatcher apiMatcher = new MvcRequestMatcher(introspector, "/api/**");
+   @Bean
+@Order(2)
+public SecurityFilterChain appChain(HttpSecurity http, HandlerMappingIntrospector introspector) throws Exception {
+    MvcRequestMatcher apiMatcher = new MvcRequestMatcher(introspector, "/api/**");
 
-        http
-            .cors(Customizer.withDefaults())
-            .csrf(csrf -> csrf.disable())
-            .httpBasic(h -> h.disable())
-            .formLogin(f -> f.disable())
-            .logout(l -> l.disable())
-            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/**").authenticated()   // /api/token은 위 체인에서 처리됨
-                .anyRequest().permitAll()
-            )
-            .oauth2Login(oauth2 -> oauth2
-                .loginPage("/login")
-                .authorizationEndpoint(endpoint ->
-                    endpoint.authorizationRequestRepository(oAuth2AuthorizationRequestBasedOnCookieRepository()))
-                .successHandler(oAuth2SuccessHandler())      // OAuth2SuccessHandler는 @Component 제거하고 @Bean만 사용
-                .userInfoEndpoint(endpoint -> endpoint.userService(oAuth2UserCustomService)
-                .oidcUserService(new OidcUserService()) )
-            )
-            .exceptionHandling(exception -> exception
-                .defaultAuthenticationEntryPointFor(
-                    new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
-                    apiMatcher
-                )
-            )
-            .addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+    http
+        .cors(Customizer.withDefaults())
+        .csrf(csrf -> csrf.disable())
+        .httpBasic(h -> h.disable())
+        .formLogin(f -> f.disable())
+        .logout(l -> l.disable())
+        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(auth -> auth
+            // ✅ 여기는 로그인 없이 허용
+            .requestMatchers(
+                "/api/auth/complete-signup",   // 소셜 추가정보 입력 완료
+                "/api/auth/login",             // (있다면) 로그인 엔드포인트
+                "/api/auth/signup",            // (있다면) 회원가입 엔드포인트
+                "/api/auth/refresh",            // 리프레시 토큰 재발급 엔드포인트 등
+                "/api/phone/send",
+                "/api/phone/verify"
+            ).permitAll()
 
-        return http.build();
-    }
+            // ✅ 나머지 /api/** 는 인증 필요
+            .requestMatchers("/api/**").authenticated()
+
+            // 그 외(정적/페이지)는 전부 허용
+            .anyRequest().permitAll()
+        )
+        .oauth2Login(oauth2 -> oauth2
+            .loginPage("/login")
+            .authorizationEndpoint(endpoint ->
+                endpoint.authorizationRequestRepository(oAuth2AuthorizationRequestBasedOnCookieRepository()))
+            .successHandler(oAuth2SuccessHandler())
+            .userInfoEndpoint(endpoint -> endpoint
+                .userService(oAuth2UserCustomService)
+                .oidcUserService(new OidcUserService())
+            )
+        )
+        .exceptionHandling(exception -> exception
+            .defaultAuthenticationEntryPointFor(
+                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                apiMatcher
+            )
+        )
+        .addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+
+    return http.build();
+}
 
     @Bean
     public OAuth2SuccessHandler oAuth2SuccessHandler() {
@@ -101,8 +118,10 @@ public class WebOAuthSecurityConfig {
             tokenProvider,
             refreshTokenRepository,
             oAuth2AuthorizationRequestBasedOnCookieRepository(),
-            userService
+            userService,
+            socialSignupTokenService
         );
+        
     }
 
     @Bean

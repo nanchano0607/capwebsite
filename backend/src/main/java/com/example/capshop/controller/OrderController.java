@@ -117,10 +117,9 @@ public class OrderController {
             @PathVariable("orderId") Long orderId,
             @AuthenticationPrincipal User user,
             @RequestBody Map<String, Object> request) {
-        System.out.println("=== 반품 요청 시작 - orderId: " + orderId + ", user: " + (user != null ? user.getId() : "null"));
+        // requestReturn invoked
         try {
             if (user == null) {
-                System.out.println("=== 에러: 인증된 사용자가 없습니다");
                 return ResponseEntity.status(401).body(Map.of("error", "인증이 필요합니다."));
             }
             
@@ -131,14 +130,12 @@ public class OrderController {
                 (shippingFeeObj instanceof Integer ? ((Integer) shippingFeeObj).longValue() : (Long) shippingFeeObj) : 0L;
             
             orderService.requestReturn(orderId, user, returnReason, returnMethod, returnShippingFee);
-            System.out.println("=== 반품 요청 성공");
             return ResponseEntity.ok(Map.of("message", "반품이 요청되었습니다."));
         } catch (IllegalStateException e) {
-            System.out.println("=== 반품 요청 실패 (IllegalState): " + e.getMessage());
+            // IllegalStateException during return request
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (RuntimeException e) {
-            System.out.println("=== 반품 요청 실패 (Runtime): " + e.getMessage());
-            e.printStackTrace();
+            // RuntimeException during return request
             return ResponseEntity.notFound().build();
         }
     }

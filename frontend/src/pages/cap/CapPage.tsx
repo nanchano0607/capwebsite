@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { isMobileDevice } from "../../utils/isMobile";
 
 const SERVER = "http://localhost:8080";
 
@@ -8,6 +9,7 @@ export default function CapPage() {
     Array<{ id: number; name: string; price: number; mainImageUrl: string; color: string; stock?: number }>
   >([]);
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     // 모든 모자 목록 조회
@@ -16,10 +18,14 @@ export default function CapPage() {
       .then((data) => setCaps(data));
   }, []);
 
+  useEffect(() => {
+    setIsMobile(isMobileDevice());
+  }, []);
+
   const displayBg = `${SERVER}/images/emptyload.png`;
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative font-sans" style={{ fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial" }}>
       {/* ✅ 고정 배경: 스크롤해도 그대로 */}
       <div
         className="fixed inset-0 w-full h-full bg-cover bg-center pointer-events-none"
@@ -31,7 +37,7 @@ export default function CapPage() {
 
       {/* ✅ 컨텐츠는 일반 flow (자연스럽게 스크롤됨) */}
       <main
-        className="relative max-w-2xl mx-auto px-4 py-8 pt-24 md:pt-32"
+        className={`relative max-w-2xl mx-auto px-4 py-8 ${isMobile ? "pt-68" : "pt-24"} md:pt-32`}
         style={{ zIndex: 1 }}
       >
         <div className="flex flex-col gap-36 items-center">
@@ -40,7 +46,11 @@ export default function CapPage() {
               <img
                 src={cap.mainImageUrl}
                 alt={cap.name}
-                className="w-[700px] h-[500px] object-cover mb-4 cursor-pointer"
+                className={
+                  isMobile
+                    ? "w-full h-auto object-contain mb-4 cursor-pointer"
+                    : "w-[700px] h-[500px] object-cover mb-4 cursor-pointer"
+                }
                 onClick={() => navigate(`/cap/${cap.id}`)}
               />
 

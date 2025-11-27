@@ -99,11 +99,11 @@ export default function License() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          name: editForm.name.trim(),
-          phone: editForm.phone.trim() || null,
-          emailMarketing: editForm.emailMarketing,
-          smsMarketing: editForm.smsMarketing,
-        }),
+            name: editForm.name.trim(),
+            // phone: 전화번호는 주소와 동일하게 변경 불가 처리하여 전송에서 제외
+            emailMarketing: editForm.emailMarketing,
+            smsMarketing: editForm.smsMarketing,
+          }),
       });
 
       const data = await response.json();
@@ -184,8 +184,8 @@ export default function License() {
 
   return (
     <>
-    {/* 📦 최상위 컨테이너: fixed로 고정하여 스크롤 방지 (inset-0 = 화면 전체) */}
-    <div className="fixed inset-0 overflow-hidden">
+    {/* Desktop: md 이상에서 표시 */}
+    <div className="hidden md:block fixed inset-0 overflow-hidden">
       {/* 📦 배경 레이어: 화면 전체를 덮는 고정 배경 (inset-0 = top:0, right:0, bottom:0, left:0) */}
       <div
         className="fixed inset-0 w-full h-full bg-cover bg-center"
@@ -230,8 +230,8 @@ export default function License() {
           >
             {/* 왼쪽 위 글씨 */}
             <div 
-              className="absolute top-2 left-12 text-white font-bold text-3xl"
-              style={{ fontFamily: "'Bangers', cursive", imageRendering: 'pixelated', zIndex: 10 }}
+              className="absolute top-2 left-12 text-white font-bold text-3xl font-beaver"
+              style={{ imageRendering: 'pixelated', zIndex: 10 }}
             >
               License
             </div>
@@ -287,7 +287,9 @@ export default function License() {
                 {/* 이메일 (수정 불가) */}
                 <div className="p-4 bg-gray-400/20 rounded-lg border border-gray-400/30 opacity-80">
                   <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
-                  <span className="text-gray-700">{userInfo.email || "이메일 없음"}</span>
+                  <span className="text-gray-700 font-sans" style={{ fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial" }}>
+                    {userInfo.email || "이메일 없음"}
+                  </span>
                 </div>
 
                 {/* 이름 */}
@@ -302,24 +304,16 @@ export default function License() {
                       placeholder="이름을 입력하세요"
                     />
                   ) : (
-                    <span className="text-black">{userInfo.name}</span>
+                    <span className="text-black font-sans" style={{ fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial" }}>{userInfo.name}</span>
                   )}
                 </div>
 
-                {/* 전화번호 */}
+                {/* 전화번호 (수정 불가) */}
                 <div className="p-4 bg-white/10 rounded-lg border border-white/20">
                   <label className="block text-sm font-medium text-black mb-1">Phone</label>
-                  {isEditing ? (
-                    <input
-                      type="tel"
-                      value={editForm.phone}
-                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                      className="w-full p-2 border border-white/30 rounded bg-white/20 text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
-                      placeholder="전화번호를 입력하세요 (선택사항)"
-                    />
-                  ) : (
-                    <span className="text-black">{userInfo.phone || "등록된 전화번호가 없습니다"}</span>
-                  )}
+                  <span className="text-black font-sans" style={{ fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial" }}>
+                    {userInfo.phone || "등록된 전화번호가 없습니다"}
+                  </span>
                 </div>
 
                 {/* 가입일 */}
@@ -438,6 +432,74 @@ export default function License() {
           </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Mobile: md 미만에서 표시되는 간단한 사용자 정보 UI */}
+    <div
+      className="block md:hidden min-h-screen text-white font-sans"
+      style={{
+        backgroundImage: `url('${SERVER}/images/emptyload.png')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className="px-5 pb-10 space-y-3 overflow-y-auto pt-20">
+        <div className="bg-black/50 rounded-xl p-4 space-y-4 mt-30">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold">License</h2>
+          </div>
+
+          {message && (
+            <div className={`p-3 rounded ${message.type === 'success' ? 'bg-green-600' : 'bg-red-600'} text-white`}>{message.text}</div>
+          )}
+
+          {loading ? (
+            <div className="text-white/80">로딩 중...</div>
+          ) : userInfo ? (
+            <div className="space-y-3">
+              <div>
+                <div className="text-sm text-white/80">Email</div>
+                <div className="text-white font-sans">{userInfo.email || '이메일 없음'}</div>
+              </div>
+
+              <div>
+                <div className="text-sm text-white/80">Name</div>
+                {isEditing ? (
+                  <input
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="w-full p-3 rounded bg-white/10 text-white"
+                  />
+                ) : (
+                  <div className="text-white">{userInfo.name}</div>
+                )}
+              </div>
+
+              <div>
+                <div className="text-sm text-white/80">Phone</div>
+                <div className="text-white">{userInfo.phone || '등록된 전화번호가 없습니다'}</div>
+              </div>
+
+              <div className="space-y-2">
+                {!isEditing ? (
+                  <button onClick={() => setIsEditing(true)} className="w-full h-12 rounded-md bg-white/10 text-white">Edit</button>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={handleUpdateUserInfo} disabled={loading} className="h-12 rounded-md bg-white/10 text-white">{loading ? '저장 중...' : 'Save'}</button>
+                    <button onClick={handleEditCancel} disabled={loading} className="h-12 rounded-md bg-white/20 text-black">Cancel</button>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <button onClick={handleDeleteAccount} className="w-full h-12 rounded-md bg-red-600 text-white">계정 탈퇴</button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-white">사용자 정보를 불러올 수 없습니다.</div>
+          )}
         </div>
       </div>
     </div>

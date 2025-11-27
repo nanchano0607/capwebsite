@@ -79,7 +79,6 @@ api.interceptors.response.use(
       | undefined;
     const status = error.response?.status ?? 0;
 
-    // 재시도 불가한 상황들
     if (!original || status !== 401 || original.__retry) {
       throw error;
     }
@@ -90,39 +89,46 @@ api.interceptors.response.use(
       throw error;
     }
 
-    // ===== 여기서부터 401 단일 비행 =====
+    // 🔹 여기 추가: "애초에 로그인 요청이 아니었던 401" 은 리프레시 시도 안 함
+    const headers = (original.headers as AxiosRequestHeaders) ?? {};
+    const hadAuthHeader = !!headers.Authorization;
+    const hadToken = !!getAccessToken();
+
+    if (!hadAuthHeader && !hadToken) {
+      // => 이건 그냥 비로그인/게스트의 401이다. /api/token 치지 말고 그대로 에러 반환.
+      throw error;
+    }
+
+    // ===== 여기서부터 진짜 "로그인했던 유저의 401"만 처리 =====
     if (!isRefreshing) {
       isRefreshing = true;
       try {
         const newToken = await refreshAccessToken();
-        broadcast(newToken); // 대기중 요청 모두 깨우기
+        broadcast(newToken);
       } finally {
         isRefreshing = false;
       }
     } else {
-      // 누군가 재발급 중이면 대기
       const token = await new Promise<string | null>((resolve) =>
         waitQueue.push(resolve)
       );
       if (token == null) {
-        // 재발급 실패로 브로드캐스트됨
         clearAccessToken();
         throw error;
       }
     }
 
-    // 여기 도달 = 재발급 시도 완료. 새 토큰으로 원 요청 1회 재시도.
     const token = getAccessToken();
     original.__retry = true;
 
-    const headers: AxiosRequestHeaders =
+    const newHeaders: AxiosRequestHeaders =
       (original.headers as AxiosRequestHeaders) ?? {};
     if (token) {
-      headers.Authorization = `Bearer ${token}`;
+      newHeaders.Authorization = `Bearer ${token}`;
     } else {
-      delete (headers as any).Authorization;
+      delete (newHeaders as any).Authorization;
     }
-    original.headers = headers;
+    original.headers = newHeaders;
 
     return api.request(original as AxiosRequestConfig);
   }

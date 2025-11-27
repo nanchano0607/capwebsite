@@ -289,7 +289,7 @@ export default function UserManagement({ isOpen, onToggle }: UserManagementProps
   }, [selectAll, filteredUsers]);
 
   return (
-    <div className="border p-4 rounded">
+    <div className="border p-4 rounded font-sans">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold">사용자 관리</h2>

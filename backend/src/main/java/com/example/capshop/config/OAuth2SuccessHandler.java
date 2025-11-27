@@ -37,6 +37,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final RefreshTokenRepository refreshTokenRepository;
     private final OAuth2AuthorizationRequestBasedOnCookieRepository authorizationRequestRepository;
     private final UserService userService;
+    private final com.example.capshop.service.SocialSignupTokenService socialSignupTokenService;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
@@ -70,23 +71,38 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             throw new IllegalArgumentException("이메일 제공에 동의하지 않은 소셜 계정은 가입할 수 없습니다.");
         }
 
-        // 4) 유저 찾거나 생성 (여기서 oauthProvider까지 저장하도록 메서드 시그니처 확장 권장)
-        User user = userService.findOrCreateUser(email, name, provider, providerUserId);
+        // 4) 이 소셜 계정이 기존 유저에 연결되어 있는지 확인
+        User existingUser = userService.findByProviderAndProviderUserId(provider, providerUserId);
 
-        // 5) RT 발급 + 저장
-        String refreshToken = tokenProvider.generateToken(user, REFRESH_TOKEN_DURATION);
-        saveRefreshToken(user.getId(), refreshToken);
+        if (existingUser != null) {
+            log.info("소셜 계정이 기존 사용자에 연결됨: userId={}, email={}", existingUser.getId(), existingUser.getEmail());
+            // 기존 유저: 기존 방식대로 토큰 발급 및 로그인 처리
+            String refreshToken = tokenProvider.generateToken(existingUser, REFRESH_TOKEN_DURATION);
+            saveRefreshToken(existingUser.getId(), refreshToken);
 
-        // 6) RT 쿠키 심기 (HttpOnly)
-        int maxAge = (int) REFRESH_TOKEN_DURATION.toSeconds();
-        CookieUtil.deleteCookie(response, REFRESH_TOKEN_COOKIE_NAME, SECURE, SAME_SITE);
-        CookieUtil.addCookie(response, REFRESH_TOKEN_COOKIE_NAME, refreshToken, maxAge, SECURE, SAME_SITE);
+            int maxAge = (int) REFRESH_TOKEN_DURATION.toSeconds();
+            CookieUtil.deleteCookie(response, REFRESH_TOKEN_COOKIE_NAME, SECURE, SAME_SITE);
+            CookieUtil.addCookie(response, REFRESH_TOKEN_COOKIE_NAME, refreshToken, maxAge, SECURE, SAME_SITE);
 
-        // 7) OAuth2 임시 쿠키 정리
+            clearAuthenticationAttributes(request, response);
+
+            getRedirectStrategy().sendRedirect(request, response, REDIRECT_PATH);
+            return;
+        }
+
+        // 신규 소셜 계정: 아직 User를 만들지 않고, 추가 정보 입력 페이지로 리다이렉트
+        log.info("신규 소셜 계정: provider={}, providerUserId={}, email={}, name={}", provider, providerUserId, email, name);
+        String tempToken = socialSignupTokenService.createToken(provider, providerUserId, email, name);
+        // 토큰은 민감하므로 전체를 로그에 남기지 않고 일부만 마스킹
+        if (tempToken != null) {
+            String masked = tempToken.length() <= 10 ? "(len=" + tempToken.length() + ")" : tempToken.substring(0, 6) + "..." + tempToken.substring(tempToken.length() - 4);
+            log.info("생성된 소셜 임시 토큰: {}", masked);
+        }
+
         clearAuthenticationAttributes(request, response);
 
-        // 8) 토큰을 URL에 싣지 않고, 깨끗한 성공 페이지로 리다이렉트
-        getRedirectStrategy().sendRedirect(request, response, REDIRECT_PATH);
+        String redirectUrl = "http://localhost:5173/complete-signup?token=" + tempToken;
+        getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }
 
     private void saveRefreshToken(Long userId, String newRefreshToken) {
